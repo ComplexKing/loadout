@@ -1,0 +1,14 @@
+pluginManagement {
+	repositories {
+		mavenCentral()
+		gradlePluginPortal()
+	}
+}
+
+rootProject.name = 'loadout'
+
+// core has no Minecraft and no UI, so it can be unit tested and reused by both the
+// launcher and the in-game mod. That split is the whole reason this ships as two things
+// from one codebase.
+include 'core'
+include 'launcher'

@@ -1,0 +1,21 @@
+.gradle/
+build/
+out/
+bin/
+
+.idea/
+*.iml
+*.ipr
+*.iws
+.settings/
+.classpath
+.project
+.vscode/
+
+*.DS_Store
+
+# Never commit anything holding credentials. Loadout keeps accounts under the user's
+# home directory, not the project, but this is here so a stray copy can't slip in.
+accounts.json
+*.token
+.env

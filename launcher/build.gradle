@@ -1,0 +1,17 @@
+dependencies {
+	implementation project(':core')
+	implementation 'com.google.code.gson:gson:2.11.0'
+}
+
+jar {
+	manifest {
+		attributes 'Main-Class': 'dev.loadout.launcher.Main'
+	}
+
+	// A launcher people can double-click has to be one file. Fat-jarring is the whole
+	// reason this ships as a jar rather than as something needing a install step.
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from {
+		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+	} exclude 'META-INF/*.SF', 'META-INF/*.DSA', 'META-INF/*.RSA', 'module-info.class'
+}

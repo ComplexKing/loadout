@@ -1,0 +1,29 @@
+subprojects {
+	apply plugin: 'java'
+
+	group = 'dev.loadout'
+	version = '0.1.0'
+
+	repositories {
+		mavenCentral()
+	}
+
+	java {
+		// 21, not 25. The mod half will need 25 because Minecraft 26.1+ does, but the
+		// launcher has to start on whatever JDK a user already has -- and someone whose
+		// Java is out of date is exactly who needs a launcher to fix it for them.
+		toolchain {
+			languageVersion = JavaLanguageVersion.of(21)
+		}
+	}
+
+	dependencies {
+		testImplementation platform('org.junit:junit-bom:5.11.4')
+		testImplementation 'org.junit.jupiter:junit-jupiter'
+		testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	}
+
+	test {
+		useJUnitPlatform()
+	}
+}
