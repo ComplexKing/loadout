@@ -1,7 +1,13 @@
 .gradle/
 build/
 out/
-bin/
+# Eclipse compiles into bin/, but our launcher shims live there too. Ignoring the
+# contents rather than the directory is what makes the negations below work -- git
+# will not re-include a file whose parent directory is itself excluded.
+bin/*
+!bin/loadout
+!bin/loadout.cmd
+!bin/install.ps1
 
 .idea/
 *.iml

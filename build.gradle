@@ -27,3 +27,26 @@ subprojects {
 		useJUnitPlatform()
 	}
 }
+
+// Assembles the thing a user actually installs: the jar renamed to loadout.jar with
+// the shims beside it, so bin/loadout finds it without knowing the version number.
+// Keeping the version out of the installed file name is deliberate -- otherwise every
+// upgrade leaves a stale jar next to the new one and the shim has to guess.
+tasks.register('dist', Sync) {
+	description = 'Builds an installable distribution into build/dist.'
+	group = 'distribution'
+
+	dependsOn ':launcher:jar'
+
+	into layout.buildDirectory.dir('dist')
+
+	from(tasks.getByPath(':launcher:jar')) {
+		rename { 'loadout.jar' }
+	}
+	from('bin') {
+		// Executable, or the shell shim cannot be run directly on Linux and macOS.
+		filePermissions { unix('rwxr-xr-x') }
+	}
+	from('README.md')
+	from('LICENSE')
+}

@@ -88,11 +88,35 @@ install <mc-version> [loader]       download Minecraft, Fabric and assets
 run <profile> [username]            launch a profile
 ```
 
+## Installing
+
+```bash
+./gradlew dist
+```
+
+That produces `build/dist/` — `loadout.jar` with a `loadout` shim beside it. Put the
+shim on your PATH so the `loadout ...` commands above work as written:
+
+```powershell
+.\build\dist\install.ps1
+```
+
+On Linux and macOS, symlink or add the folder to `PATH` yourself:
+
+```bash
+ln -s "$PWD/build/dist/loadout" ~/.local/bin/loadout
+```
+
+Without the shim on PATH, every command still works spelled out in full:
+
+```bash
+java -jar build/dist/loadout.jar sources
+```
+
 ## Building
 
 ```bash
 ./gradlew build
-java -jar launcher/build/libs/launcher-0.1.0.jar
 ```
 
 Java 21 or newer. The launcher targets 21 deliberately — Minecraft 26.1+ needs Java 25,
@@ -104,7 +128,6 @@ Set `LOADOUT_HOME` to relocate its data directory; it defaults to `~/.loadout`.
 ## Not done yet
 
 - **Microsoft sign-in** — pending an approved Azure application.
-- **Content browser** — installing mods from inside Loadout rather than importing a folder.
 - **Graphical interface** — everything is CLI today.
 
 ## Licence

@@ -1,0 +1,10 @@
+# Batch files must keep CRLF. A .cmd checked out with LF endings fails in ways
+# that are hard to read -- goto and label handling in particular -- so pin it
+# rather than leaving it to a contributor's core.autocrlf setting.
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# The shell shim must keep LF for the same reason in reverse: a CRLF shebang
+# line makes the kernel look for an interpreter with a trailing carriage return.
+bin/loadout text eol=lf
+gradlew text eol=lf

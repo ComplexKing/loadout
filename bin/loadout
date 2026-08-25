@@ -1,0 +1,31 @@
+#!/bin/sh
+# Loadout launcher shim. See loadout.cmd for the Windows equivalent.
+set -e
+
+here=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+
+# A built distribution keeps the jar beside this script; a source checkout has it
+# under launcher/build/libs. Prefer the former so an installed copy never runs a
+# stale development build.
+jar="$here/loadout.jar"
+[ -f "$jar" ] || jar="$here/../launcher/build/libs/launcher-0.1.0.jar"
+
+if [ ! -f "$jar" ]; then
+	echo "Loadout is not built yet. Run this from the project root:" >&2
+	echo "    ./gradlew build" >&2
+	exit 1
+fi
+
+# JAVA_HOME wins when set, because the java on PATH is often whatever some other
+# installer put there.
+if [ -n "${JAVA_HOME:-}" ] && [ -x "$JAVA_HOME/bin/java" ]; then
+	java="$JAVA_HOME/bin/java"
+elif command -v java >/dev/null 2>&1; then
+	java=java
+else
+	echo "Java was not found. Loadout needs Java 21 or newer." >&2
+	echo "Install it from https://adoptium.net and reopen this terminal." >&2
+	exit 1
+fi
+
+exec "$java" -jar "$jar" "$@"
