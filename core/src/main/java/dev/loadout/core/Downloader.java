@@ -32,6 +32,24 @@ public final class Downloader {
 	}
 
 	/**
+	 * Ensures a source's file is in the store, downloading it only if it isn't already.
+	 *
+	 * <p>Sources differ in what they publish about a file. Modrinth gives a SHA-512, so a
+	 * download can be verified against what was advertised; CurseForge publishes a
+	 * different fingerprint scheme, so there is nothing to check against and the hash is
+	 * whatever the bytes turn out to be. Both end up addressed by their real hash either
+	 * way -- verification is a bonus where it exists, not a precondition.
+	 */
+	public String fetch(dev.loadout.core.source.RemoteFile file, Progress progress)
+			throws IOException, InterruptedException {
+		if (!file.isDownloadable()) {
+			throw new IOException(file.fileName() + " cannot be downloaded from "
+					+ file.source().displayName() + " - the author has opted out of third-party downloads");
+		}
+		return fetch(file.downloadUrl(), file.fileName(), file.sha512(), file.fileSize(), progress);
+	}
+
+	/**
 	 * Ensures a version's file is in the store, downloading it only if it isn't already.
 	 *
 	 * <p>The skip matters more than it sounds: moving between Minecraft versions
@@ -44,18 +62,23 @@ public final class Downloader {
 		if (version.downloadUrl() == null) {
 			throw new IOException("No downloadable file for " + version.versionNumber());
 		}
+		return fetch(version.downloadUrl(), version.fileName(), version.sha512(),
+				version.fileSize(), progress);
+	}
 
-		if (version.sha512() != null && this.store.has(version.sha512())) {
-			return version.sha512();
+	private String fetch(String url, String fileName, String expectedSha512, long size, Progress progress)
+			throws IOException, InterruptedException {
+		if (expectedSha512 != null && this.store.has(expectedSha512)) {
+			return expectedSha512;
 		}
 
 		if (progress != null) {
-			progress.starting(version.fileName(), version.fileSize());
+			progress.starting(fileName, size);
 		}
 
 		Path temp = Files.createTempFile("loadout-", ".jar");
 		try {
-			HttpRequest request = HttpRequest.newBuilder(URI.create(version.downloadUrl()))
+			HttpRequest request = HttpRequest.newBuilder(URI.create(url))
 					.header("User-Agent", USER_AGENT)
 					.timeout(Duration.ofMinutes(10))
 					.GET()
@@ -65,7 +88,7 @@ public final class Downloader {
 					this.http.send(request, HttpResponse.BodyHandlers.ofInputStream());
 			if (response.statusCode() / 100 != 2) {
 				throw new IOException("Download failed with " + response.statusCode()
-						+ " for " + version.fileName());
+						+ " for " + fileName);
 			}
 
 			try (InputStream body = response.body()) {
@@ -74,7 +97,7 @@ public final class Downloader {
 
 			// put() re-hashes and rejects a mismatch, so a truncated or tampered download
 			// can never reach a profile.
-			return this.store.put(temp, version.sha512());
+			return this.store.put(temp, expectedSha512);
 		} finally {
 			Files.deleteIfExists(temp);
 		}

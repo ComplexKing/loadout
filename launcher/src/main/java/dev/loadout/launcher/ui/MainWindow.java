@@ -371,7 +371,7 @@ public final class MainWindow extends JFrame {
 		}
 
 		background("Reading " + this.selected, () -> this.home.loadProfile(this.selected), profile ->
-				new BrowseDialog(this, this.installer, this.icons, profile, message -> {
+				new BrowseDialog(this, this.installer, this.home.sources(), this.icons, profile, message -> {
 					loadProfile(profile.name());
 					setStatus(message);
 				}).setVisible(true));

@@ -58,7 +58,7 @@ public final class Preview {
 		SwingUtilities.invokeAndWait(() -> {
 			dialogRef[0] = new BrowseDialog(windowRef[0],
 					new dev.loadout.core.browse.ModInstaller(home),
-					new IconCache(home.root()), profile, message -> { });
+					home.sources(), new IconCache(home.root()), profile, message -> { });
 			dialogRef[0].setSize(980, 720);
 		});
 

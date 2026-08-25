@@ -57,6 +57,21 @@ public final class LoadoutHome {
 		return this.root;
 	}
 
+	public Settings settings() {
+		return Settings.load(this.root);
+	}
+
+	/**
+	 * The sources available on this machine.
+	 *
+	 * <p>Built fresh each call so a key added during a session takes effect without a
+	 * restart -- the registry is cheap, and a stale one silently ignoring new credentials
+	 * is a confusing thing to debug.
+	 */
+	public dev.loadout.core.source.SourceRegistry sources() {
+		return new dev.loadout.core.source.SourceRegistry(settings().curseForgeApiKey());
+	}
+
 	public ModStore store() {
 		return this.store;
 	}

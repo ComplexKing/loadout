@@ -2,10 +2,12 @@ package dev.loadout.core.browse;
 
 import dev.loadout.core.Downloader;
 import dev.loadout.core.LoadoutHome;
-import dev.loadout.core.ModrinthVersion;
+import dev.loadout.core.ModScanner;
 import dev.loadout.core.Profile;
 import dev.loadout.core.ProfileManager;
-import dev.loadout.core.ModScanner;
+import dev.loadout.core.source.RemoteFile;
+import dev.loadout.core.source.SourceId;
+import dev.loadout.core.source.SourceRegistry;
 import java.io.IOException;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -21,85 +23,102 @@ import java.util.Set;
 public final class ModInstaller {
 	private final LoadoutHome home;
 	private final ProfileManager profiles;
-	private final ModBrowser browser;
 	private final Downloader downloader;
 
 	public ModInstaller(LoadoutHome home) {
 		this.home = home;
 		this.profiles = new ProfileManager(home);
-		this.browser = new ModBrowser();
 		this.downloader = new Downloader(home.store());
 	}
 
 	/**
-	 * @param installed what was added, in the order resolved
-	 * @param alreadyPresent projects the profile already had
-	 * @param unavailable projects with no build for this profile's Minecraft version
+	 * @param installed files added
+	 * @param upgraded files replaced in place, as "old -> new"
+	 * @param alreadyPresent mods the profile already had
+	 * @param unavailable mods with no build for this profile's Minecraft version
+	 * @param blocked mods whose author has forbidden third-party downloads, with the page
+	 *     to get them from. Not an error — a decision by the author that Loadout respects.
 	 */
 	public record Result(
 			List<String> installed,
+			List<String> upgraded,
 			List<String> alreadyPresent,
 			List<String> unavailable,
-			List<String> upgraded
+			List<String> blocked
 	) {
 		public boolean changedAnything() {
-			return !this.installed.isEmpty();
+			return !this.installed.isEmpty() || !this.upgraded.isEmpty();
+		}
+
+		static Result nothing(List<String> present, List<String> unavailable, List<String> blocked) {
+			return new Result(List.of(), List.of(), present, unavailable, blocked);
 		}
 	}
 
 	/**
 	 * Installs a mod and everything it requires.
 	 *
-	 * <p>Dependencies are resolved breadth-first and transitively, because a library
-	 * frequently depends on another one. Installing only what the user asked for produces
-	 * a profile that fails at startup with a missing-dependency error, which is the single
-	 * most common way a hand-managed mods folder breaks.
+	 * <p>Dependencies resolve breadth-first and transitively within the same source, since
+	 * a library often depends on another. Installing only what was asked for produces a
+	 * profile that fails at startup with a missing-dependency error, which is the most
+	 * common way a hand-managed mods folder breaks.
 	 *
-	 * <p>Nothing is written until every file has downloaded and verified, so a failure
-	 * partway leaves the profile exactly as it was.
+	 * <p>Dependencies stay within the source they came from. CurseForge ids mean nothing
+	 * to Modrinth and vice versa, so following a dependency across registries would need
+	 * name matching — and quietly installing a different project than the one a mod asked
+	 * for is worse than reporting that it couldn't be resolved.
 	 */
-	public Result install(String profileName, String projectId, Downloader.Progress progress)
+	public Result install(String profileName, SourceId sourceId, String modId, Downloader.Progress progress)
 			throws IOException, InterruptedException {
 		Profile profile = this.home.loadProfile(profileName);
-		String gameVersion = profile.minecraftVersion();
-		String loader = profile.loader();
+		SourceRegistry registry = this.home.sources();
+
+		var source = registry.get(sourceId);
+		if (source == null || !source.isAvailable()) {
+			throw new IOException(sourceId.displayName() + " is not available"
+					+ (source == null ? "" : ": " + source.unavailableReason()));
+		}
 
 		Set<String> present = new HashSet<>();
 		for (Profile.Entry entry : profile.mods()) {
-			if (entry.projectId() != null) {
+			if (entry.projectId() != null && sourceId.key().equals(entry.source())) {
 				present.add(entry.projectId());
 			}
 		}
 
-		List<String> installedNames = new ArrayList<>();
 		List<String> skipped = new ArrayList<>();
 		List<String> unavailable = new ArrayList<>();
-		Map<String, ModrinthVersion> toAdd = new LinkedHashMap<>();
+		List<String> blocked = new ArrayList<>();
+		Map<String, RemoteFile> toAdd = new LinkedHashMap<>();
 
 		Deque<String> queue = new ArrayDeque<>();
 		Set<String> seen = new HashSet<>();
-		queue.add(projectId);
-		seen.add(projectId);
+		queue.add(modId);
+		seen.add(modId);
 
 		while (!queue.isEmpty()) {
 			String current = queue.poll();
 
 			if (present.contains(current)) {
-				skipped.add(this.browser.projectTitle(current));
+				skipped.add(source.modTitle(current));
 				continue;
 			}
 
-			Optional<ModrinthVersion> version = this.browser.bestVersion(current, gameVersion, loader);
-			if (version.isEmpty()) {
-				// A dependency with no build for this version is a hard stop for the mod
-				// that wanted it, but worth reporting rather than failing silently.
-				unavailable.add(this.browser.projectTitle(current));
+			Optional<RemoteFile> file = source.bestFile(current, profile.minecraftVersion(), profile.loader());
+			if (file.isEmpty()) {
+				unavailable.add(source.modTitle(current));
 				continue;
 			}
 
-			toAdd.put(current, version.get());
+			if (!file.get().isDownloadable()) {
+				// CurseForge authors can opt out of third-party distribution. Point at
+				// the page rather than pretending this is a failure.
+				blocked.add(source.modTitle(current));
+				continue;
+			}
 
-			for (String dependency : this.browser.requiredDependencies(version.get().versionId())) {
+			toAdd.put(current, file.get());
+			for (String dependency : file.get().requiredDependencies()) {
 				if (seen.add(dependency)) {
 					queue.add(dependency);
 				}
@@ -107,43 +126,41 @@ public final class ModInstaller {
 		}
 
 		if (toAdd.isEmpty()) {
-			return new Result(List.of(), List.copyOf(skipped), List.copyOf(unavailable), List.of());
+			return Result.nothing(List.copyOf(skipped), List.copyOf(unavailable), List.copyOf(blocked));
 		}
 
 		// Everything downloads into the content store first. That touches nothing the
 		// profile can see, so this stage is safe to fail.
 		Map<String, String> hashes = new LinkedHashMap<>();
-		for (Map.Entry<String, ModrinthVersion> entry : toAdd.entrySet()) {
+		for (Map.Entry<String, RemoteFile> entry : toAdd.entrySet()) {
 			hashes.put(entry.getKey(), this.downloader.fetch(entry.getValue(), progress));
 		}
 
-		this.home.snapshot(profile, "install " + this.browser.projectTitle(projectId));
+		this.home.snapshot(profile, "install " + source.modTitle(modId));
 
 		List<Profile.Entry> updated = new ArrayList<>(profile.mods());
+		List<String> installed = new ArrayList<>();
 		List<String> upgraded = new ArrayList<>();
 
-		for (Map.Entry<String, ModrinthVersion> entry : toAdd.entrySet()) {
-			ModrinthVersion version = entry.getValue();
+		for (Map.Entry<String, RemoteFile> entry : toAdd.entrySet()) {
+			RemoteFile file = entry.getValue();
 			String hash = hashes.get(entry.getKey());
 
-			// Read the id out of the jar we just stored. This is the check that actually
-			// prevents a broken profile: Fabric refuses to start with two mods declaring
-			// the same id, and a Modrinth project id can't catch it -- the same mod
-			// obtained from CurseForge or built locally has no project id at all.
-			String modId = readModId(hash);
+			// The id inside the jar is what decides a conflict. Fabric refuses to start
+			// with two mods declaring the same id, and a registry id cannot catch it --
+			// the same mod from another source has a different one entirely.
+			String jarModId = readModId(hash);
 
-			int existing = indexOfModId(updated, modId);
-			Profile.Entry replacement = new Profile.Entry(
-					hash, version.fileName(), true, entry.getKey(), version.versionNumber(), modId);
+			Profile.Entry replacement = new Profile.Entry(hash, file.fileName(), true,
+					entry.getKey(), file.versionNumber(), jarModId, sourceId.key());
 
+			int existing = indexOfModId(updated, jarModId);
 			if (existing >= 0) {
-				// Already have this mod at another version. Replacing is what the user
-				// meant; adding would leave two copies and a game that won't launch.
-				upgraded.add(updated.get(existing).fileName() + " -> " + version.fileName());
+				upgraded.add(updated.get(existing).fileName() + " -> " + file.fileName());
 				updated.set(existing, replacement.withEnabled(updated.get(existing).enabled()));
 			} else {
 				updated.add(replacement);
-				installedNames.add(version.fileName());
+				installed.add(file.fileName());
 			}
 		}
 
@@ -151,19 +168,16 @@ public final class ModInstaller {
 		this.home.saveProfile(profile);
 		this.profiles.materialise(profile);
 
-		return new Result(List.copyOf(installedNames), List.copyOf(skipped),
-				List.copyOf(unavailable), List.copyOf(upgraded));
+		return new Result(List.copyOf(installed), List.copyOf(upgraded),
+				List.copyOf(skipped), List.copyOf(unavailable), List.copyOf(blocked));
 	}
 
 	/**
 	 * Removes a mod by file name.
 	 *
-	 * <p>Removes only what was named. Working out whether a dependency is now unused
-	 * means knowing what else still wants it, and guessing wrong uninstalls a library
-	 * three other mods needed — so anything orphaned is left for {@code prune} to report
-	 * rather than silently deleted here.
-	 *
-	 * @return true if something was removed
+	 * <p>Removes only what was named. Deciding whether a dependency is now unused means
+	 * knowing what else still wants it, and guessing wrong uninstalls a library three
+	 * other mods needed.
 	 */
 	public boolean remove(String profileName, String fileName) throws IOException {
 		Profile profile = this.home.loadProfile(profileName);
@@ -228,9 +242,5 @@ public final class ModInstaller {
 			}
 		}
 		return -1;
-	}
-
-	public ModBrowser browser() {
-		return this.browser;
 	}
 }

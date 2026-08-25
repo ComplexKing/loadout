@@ -28,8 +28,11 @@ public final class Profile {
 	 * @param versionNumber the author's version string, for display
 	 * @param modId the id from fabric.mod.json. This is what actually decides whether two
 	 *     jars conflict: the loader refuses to start with two mods declaring the same id,
-	 *     and unlike a Modrinth project id it is present in every jar whether or not
-	 *     anyone has ever published it.
+	 *     and unlike a registry id it is present in every jar whether or not anyone has
+	 *     ever published it.
+	 * @param source which registry {@code projectId} belongs to. Recorded because the two
+	 *     id spaces are unrelated -- looking a CurseForge id up on Modrinth finds nothing,
+	 *     and a mod installed from CurseForge has to keep being checked against CurseForge.
 	 */
 	public record Entry(
 			String sha512,
@@ -37,10 +40,16 @@ public final class Profile {
 			boolean enabled,
 			String projectId,
 			String versionNumber,
-			String modId
+			String modId,
+			String source
 	) {
 		public Entry withEnabled(boolean value) {
-			return new Entry(this.sha512, this.fileName, value, this.projectId, this.versionNumber, this.modId);
+			return new Entry(this.sha512, this.fileName, value, this.projectId,
+					this.versionNumber, this.modId, this.source);
+		}
+
+		public dev.loadout.core.source.SourceId sourceId() {
+			return this.source == null ? null : dev.loadout.core.source.SourceId.fromKey(this.source);
 		}
 	}
 
@@ -96,7 +105,8 @@ public final class Profile {
 	public static Profile fromScan(String name, String minecraftVersion, String loader, List<ModJar> jars) {
 		List<Entry> entries = new ArrayList<>(jars.size());
 		for (ModJar jar : jars) {
-			entries.add(new Entry(jar.sha512(), jar.fileName(), jar.enabled(), null, jar.version(), jar.modId()));
+			entries.add(new Entry(jar.sha512(), jar.fileName(), jar.enabled(), null,
+					jar.version(), jar.modId(), null));
 		}
 		return new Profile(name, minecraftVersion, loader, entries);
 	}

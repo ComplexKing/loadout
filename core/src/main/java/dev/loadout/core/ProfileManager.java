@@ -58,7 +58,8 @@ public final class ProfileManager {
 			String hash = this.home.store().put(jar.path(), jar.sha512());
 			ModrinthVersion known = identified.get(jar.sha512());
 			entries.add(new Profile.Entry(hash, jar.fileName(), jar.enabled(),
-					known == null ? null : known.projectId(), jar.version(), jar.modId()));
+					known == null ? null : known.projectId(), jar.version(), jar.modId(),
+					known == null ? null : dev.loadout.core.source.SourceId.MODRINTH.key()));
 		}
 
 		Profile profile = new Profile(name, minecraftVersion, loader, entries);
@@ -136,13 +137,16 @@ public final class ProfileManager {
 				continue;
 			}
 
+			// Migration resolves through Modrinth's bulk hash endpoints, so anything it
+			// replaces is a Modrinth file now, whatever the entry was before.
 			updated.add(new Profile.Entry(
 					replacement.sha512(),
 					replacement.fileName(),
 					entry.enabled(),
 					replacement.projectId(),
 					replacement.versionNumber(),
-					entry.modId()));
+					entry.modId(),
+					dev.loadout.core.source.SourceId.MODRINTH.key()));
 			changed++;
 		}
 

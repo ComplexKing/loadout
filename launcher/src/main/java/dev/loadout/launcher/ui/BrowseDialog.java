@@ -1,9 +1,10 @@
 package dev.loadout.launcher.ui;
 
 import dev.loadout.core.Profile;
-import dev.loadout.core.browse.ModBrowser;
 import dev.loadout.core.browse.ModInstaller;
-import dev.loadout.core.browse.SearchResult;
+import dev.loadout.core.source.ModSource;
+import dev.loadout.core.source.RemoteMod;
+import dev.loadout.core.source.SourceRegistry;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -30,6 +31,7 @@ import javax.swing.SwingWorker;
  */
 public final class BrowseDialog extends JDialog {
 	private final ModInstaller installer;
+	private final SourceRegistry registry;
 	private final IconCache icons;
 	private final Profile profile;
 	private final Consumer<String> onInstalled;
@@ -42,10 +44,11 @@ public final class BrowseDialog extends JDialog {
 	// Reserved width so a growing count doesn't get clipped by BorderLayout.WEST.
 	private static final Dimension STATUS_SIZE = new Dimension(420, 20);
 
-	public BrowseDialog(JFrame parent, ModInstaller installer, IconCache icons,
-			Profile profile, Consumer<String> onInstalled) {
+	public BrowseDialog(JFrame parent, ModInstaller installer, SourceRegistry registry,
+			IconCache icons, Profile profile, Consumer<String> onInstalled) {
 		super(parent, "Browse mods", true);
 		this.installer = installer;
+		this.registry = registry;
 		this.icons = icons;
 		this.profile = profile;
 		this.onInstalled = onInstalled;
@@ -127,32 +130,33 @@ public final class BrowseDialog extends JDialog {
 	}
 
 	/** Maps the friendly sort names onto Modrinth's index names. */
-	private String sortIndex() {
+	private ModSource.SortOrder sortOrder() {
 		return switch (this.sort.getSelectedIndex()) {
-			case 1 -> "relevance";
-			case 2 -> "updated";
-			case 3 -> "newest";
-			default -> "downloads";
+			case 1 -> ModSource.SortOrder.RELEVANCE;
+			case 2 -> ModSource.SortOrder.UPDATED;
+			case 3 -> ModSource.SortOrder.NEWEST;
+			default -> ModSource.SortOrder.DOWNLOADS;
 		};
 	}
 
 	private void search(String text) {
 		this.status.setText("Searching...");
 
-		new SwingWorker<List<SearchResult>, Void>() {
+		new SwingWorker<SourceRegistry.Merged, Void>() {
 			@Override
-			protected List<SearchResult> doInBackground() throws Exception {
-				return new ModBrowser().search(text, profile.minecraftVersion(),
-						profile.loader(), sortIndex(), 40, 0);
+			protected SourceRegistry.Merged doInBackground() throws Exception {
+				return registry.search(text, profile.minecraftVersion(),
+						profile.loader(), sortOrder(), 40);
 			}
 
 			@Override
 			protected void done() {
 				try {
-					List<SearchResult> found = get();
+					SourceRegistry.Merged merged = get();
+					List<RemoteMod> found = merged.results();
 					results.removeAll();
 
-					for (SearchResult result : found) {
+					for (RemoteMod result : found) {
 						results.add(ModCard.forSearch(result, icons, () -> install(result)));
 						results.add(Ui.gap(10));
 					}
@@ -162,7 +166,10 @@ public final class BrowseDialog extends JDialog {
 
 					results.revalidate();
 					results.repaint();
-					status.setText(found.size() + " result" + (found.size() == 1 ? "" : "s"));
+					// Notes cover a source being switched off or rate limited. Saying so
+					// beats silently returning fewer results than the user expects.
+					String note = merged.notes().isEmpty() ? "" : "   -   " + merged.notes().get(0);
+					status.setText(found.size() + " result" + (found.size() == 1 ? "" : "s") + note);
 				} catch (Exception e) {
 					Throwable cause = e.getCause() == null ? e : e.getCause();
 					status.setText("Search failed: " + cause.getMessage());
@@ -171,13 +178,13 @@ public final class BrowseDialog extends JDialog {
 		}.execute();
 	}
 
-	private void install(SearchResult chosen) {
+	private void install(RemoteMod chosen) {
 		this.status.setText("Installing " + chosen.title() + "...");
 
 		new SwingWorker<ModInstaller.Result, String>() {
 			@Override
 			protected ModInstaller.Result doInBackground() throws Exception {
-				return installer.install(profile.name(), chosen.projectId(),
+				return installer.install(profile.name(), chosen.source(), chosen.id(),
 						(file, bytes) -> publish(file));
 			}
 
@@ -192,6 +199,18 @@ public final class BrowseDialog extends JDialog {
 					ModInstaller.Result result = get();
 					onInstalled.accept(summarise(chosen, result));
 					status.setText(summarise(chosen, result));
+
+					if (!result.blocked().isEmpty()) {
+						// The author has opted out of third-party downloads. That is their
+						// decision, so point at the page rather than treating it as a failure
+						// or looking for another way to get the bytes.
+						JOptionPane.showMessageDialog(BrowseDialog.this,
+								"These must be downloaded from the website, because their authors"
+								+ " have not allowed third-party downloads:\n\n  "
+								+ String.join("\n  ", result.blocked())
+								+ "\n\n" + chosen.webUrl(),
+								"Download from the website", JOptionPane.INFORMATION_MESSAGE);
+					}
 
 					if (!result.unavailable().isEmpty()) {
 						JOptionPane.showMessageDialog(BrowseDialog.this,
@@ -208,7 +227,7 @@ public final class BrowseDialog extends JDialog {
 		}.execute();
 	}
 
-	private static String summarise(SearchResult chosen, ModInstaller.Result result) {
+	private static String summarise(RemoteMod chosen, ModInstaller.Result result) {
 		int added = result.installed().size();
 		int upgraded = result.upgraded().size();
 

@@ -16,9 +16,12 @@ import dev.loadout.core.launch.LaunchBuilder;
 import dev.loadout.core.launch.LogRedactor;
 import dev.loadout.core.auth.AccountStore;
 import dev.loadout.core.auth.StoredAccount;
-import dev.loadout.core.browse.ModBrowser;
 import dev.loadout.core.browse.ModInstaller;
-import dev.loadout.core.browse.SearchResult;
+import dev.loadout.core.Settings;
+import dev.loadout.core.source.ModSource;
+import dev.loadout.core.source.RemoteMod;
+import dev.loadout.core.source.SourceId;
+import dev.loadout.core.source.SourceRegistry;
 import dev.loadout.launcher.ui.MainWindow;
 import dev.loadout.launcher.ui.Theme;
 import com.google.gson.JsonObject;
@@ -114,6 +117,11 @@ public final class Main {
 						? rest.get(1) + " is now " + (on ? "enabled" : "disabled")
 						: "No such mod: " + rest.get(1));
 			}
+			case "sources" -> sources(home);
+			case "key" -> {
+				need(rest, 2, "key curseforge <api-key>");
+				setKey(home, rest.get(0), rest.get(1));
+			}
 			case "java" -> javas();
 			case "install" -> {
 				need(rest, 1, "install <mc-version> [loader-version]");
@@ -172,8 +180,13 @@ public final class Main {
 
 				  search <profile> <query>
 				      Find mods that fit a profile's Minecraft version and loader.
-				  add <profile> <project-id-or-slug>
-				      Install a mod and everything it requires.
+				  add <profile> <source>:<id>
+				      Install a mod and everything it requires. Source defaults to
+				      modrinth, so "loadout add main sodium" works.
+				  sources
+				      Show which mod sources are usable.
+				  key curseforge <api-key>
+				      Store a CurseForge API key from console.curseforge.com.
 				  remove <profile> <file-name>
 				  toggle <profile> <file-name> <on|off>
 
@@ -294,36 +307,55 @@ public final class Main {
 		}
 
 		Profile profile = home.loadProfile(profileName);
-		List<SearchResult> results = new ModBrowser()
-				.search(query, profile.minecraftVersion(), profile.loader(), "relevance", 15, 0);
+		SourceRegistry.Merged merged = home.sources().search(query, profile.minecraftVersion(),
+				profile.loader(), ModSource.SortOrder.RELEVANCE, 15);
 
-		if (results.isEmpty()) {
+		if (merged.results().isEmpty()) {
 			System.out.printf("Nothing found for '%s' on %s / %s.%n",
 					query, profile.minecraftVersion(), profile.loader());
-			return;
+		} else {
+			System.out.printf("Compatible with %s (%s)%n%n", profile.minecraftVersion(), profile.loader());
+			System.out.printf("%-13s %-24s %-8s %s%n", "SOURCE", "ID", "DOWNLOADS", "NAME");
+			for (RemoteMod mod : merged.results()) {
+				System.out.printf("%-13s %-24s %-8s %s%n",
+						mod.source().key(),
+						truncate(mod.slug() == null ? mod.id() : mod.slug(), 24),
+						mod.downloadsShort(),
+						truncate(mod.title(), 34));
+			}
+			System.out.printf("%nInstall with: loadout add %s <source>:<id>%n", profileName);
 		}
 
-		System.out.printf("Compatible with %s (%s)%n%n", profile.minecraftVersion(), profile.loader());
-		System.out.printf("%-26s %-8s %-30s %s%n", "SLUG", "DOWNLOADS", "NAME", "DESCRIPTION");
-		for (SearchResult result : results) {
-			System.out.printf("%-26s %-8s %-30s %s%n",
-					truncate(result.slug(), 26),
-					result.downloadsShort(),
-					truncate(result.title(), 30),
-					truncate(result.description(), 48));
+		// Anything switched off or rate limited is worth saying out loud -- otherwise a
+		// missing CurseForge key just looks like CurseForge having no matching mods.
+		if (!merged.notes().isEmpty()) {
+			System.out.println();
+			merged.notes().forEach(note -> System.out.println("  note: " + note));
 		}
-
-		System.out.printf("%nInstall with: loadout add %s <slug>%n", profileName);
 	}
 
-	private static void add(LoadoutHome home, String profileName, String projectId) throws Exception {
+	private static void add(LoadoutHome home, String profileName, String spec) throws Exception {
 		if (!home.exists(profileName)) {
 			System.err.println("No profile called '" + profileName + "'. Try: loadout list");
 			System.exit(1);
 		}
 
-		ModInstaller installer = new ModInstaller(home);
-		ModInstaller.Result result = installer.install(profileName, projectId,
+		// "curseforge:238222" or just "sodium", which defaults to Modrinth since it needs
+		// no key and is what most people mean.
+		SourceId source = SourceId.MODRINTH;
+		String modId = spec;
+		int colon = spec.indexOf(':');
+		if (colon > 0) {
+			SourceId parsed = SourceId.fromKey(spec.substring(0, colon));
+			if (parsed == null) {
+				System.err.println("Unknown source '" + spec.substring(0, colon) + "'. Try: loadout sources");
+				System.exit(1);
+			}
+			source = parsed;
+			modId = spec.substring(colon + 1);
+		}
+
+		ModInstaller.Result result = new ModInstaller(home).install(profileName, source, modId,
 				(file, bytes) -> System.out.printf("  downloading %s (%.1f MB)%n", file, bytes / 1_048_576.0));
 
 		if (!result.alreadyPresent().isEmpty()) {
@@ -332,18 +364,46 @@ public final class Main {
 		if (!result.unavailable().isEmpty()) {
 			System.out.println("No build for this version: " + String.join(", ", result.unavailable()));
 		}
-
+		if (!result.blocked().isEmpty()) {
+			System.out.println("Must be downloaded from the website (author has not allowed");
+			System.out.println("third-party downloads): " + String.join(", ", result.blocked()));
+		}
 		if (!result.upgraded().isEmpty()) {
 			System.out.println("Upgraded in place:");
 			result.upgraded().forEach(line -> System.out.println("  " + line));
 		}
 
-		if (result.changedAnything() || !result.upgraded().isEmpty()) {
+		if (!result.installed().isEmpty()) {
 			System.out.printf("%nInstalled %d file(s) into '%s':%n", result.installed().size(), profileName);
 			result.installed().forEach(name -> System.out.println("  " + name));
-		} else {
+		} else if (!result.changedAnything()) {
 			System.out.println("Nothing to do.");
 		}
+	}
+
+	private static void sources(LoadoutHome home) {
+		SourceRegistry registry = home.sources();
+		System.out.printf("%-14s %-12s %s%n", "SOURCE", "STATUS", "NOTE");
+		for (ModSource source : registry.all()) {
+			System.out.printf("%-14s %-12s %s%n",
+					source.id().key(),
+					source.isAvailable() ? "ready" : "off",
+					source.isAvailable() ? "" : source.unavailableReason());
+		}
+	}
+
+	private static void setKey(LoadoutHome home, String sourceKey, String value) throws Exception {
+		if (SourceId.fromKey(sourceKey) != SourceId.CURSEFORGE) {
+			System.err.println("Only curseforge needs a key. Modrinth works without one.");
+			System.exit(1);
+		}
+
+		Settings settings = home.settings();
+		settings.setCurseForgeApiKey(value);
+		settings.save(home.root());
+		// Never echo the key back.
+		System.out.println("CurseForge key saved to " + Settings.fileIn(home.root()));
+		System.out.println("Check it with: loadout sources");
 	}
 
 	private static void javas() {

@@ -1,7 +1,7 @@
 package dev.loadout.launcher.ui;
 
 import dev.loadout.core.Profile;
-import dev.loadout.core.browse.SearchResult;
+import dev.loadout.core.source.RemoteMod;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -30,7 +30,7 @@ public final class ModCard {
 	}
 
 	/** A search result, with an install action. */
-	public static Card forSearch(SearchResult result, IconCache icons, Runnable onInstall) {
+	public static Card forSearch(RemoteMod result, IconCache icons, Runnable onInstall) {
 		Card card = new Card();
 		card.setLayout(new GridBagLayout());
 		card.setBorder(Ui.pad(16, 18, 16, 18));
@@ -75,6 +75,7 @@ public final class ModCard {
 
 		JPanel tags = new JPanel(new FlowLayout(FlowLayout.LEFT, 6, 0));
 		tags.setOpaque(false);
+		tags.add(Ui.pill(result.source().displayName(), Theme.ACCENT, Theme.SURFACE_HIGH));
 		tags.add(Ui.pill(result.downloadsShort() + " downloads", Theme.TEXT_DIM, Theme.SURFACE_HIGH));
 		int shown = 0;
 		for (String category : result.categories()) {
