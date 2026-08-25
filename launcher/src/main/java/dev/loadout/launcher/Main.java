@@ -16,6 +16,11 @@ import dev.loadout.core.launch.LaunchBuilder;
 import dev.loadout.core.launch.LogRedactor;
 import dev.loadout.core.auth.AccountStore;
 import dev.loadout.core.auth.StoredAccount;
+import dev.loadout.core.browse.ModBrowser;
+import dev.loadout.core.browse.ModInstaller;
+import dev.loadout.core.browse.SearchResult;
+import dev.loadout.launcher.ui.MainWindow;
+import dev.loadout.launcher.ui.Theme;
 import com.google.gson.JsonObject;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -33,8 +38,11 @@ public final class Main {
 	}
 
 	public static void main(String[] args) throws Exception {
-		if (args.length == 0) {
-			usage();
+		// No arguments means someone double-clicked the jar, so show the window. The CLI
+		// stays the full-featured half; the window is the approachable half over the
+		// same core.
+		if (args.length == 0 || args[0].equals("gui")) {
+			launchGui();
 			return;
 		}
 
@@ -85,6 +93,27 @@ public final class Main {
 				System.out.printf("Copied %d config files from '%s' to '%s'%s%n",
 						copied, rest.get(0), rest.get(1), overwrite ? "" : " (skipped ones that already existed)");
 			}
+			case "search" -> {
+				need(rest, 2, "search <profile> <query>");
+				search(home, rest.get(0), String.join(" ", rest.subList(1, rest.size())));
+			}
+			case "add" -> {
+				need(rest, 2, "add <profile> <project-id-or-slug>");
+				add(home, rest.get(0), rest.get(1));
+			}
+			case "remove" -> {
+				need(rest, 2, "remove <profile> <file-name>");
+				boolean removed = new ModInstaller(home).remove(rest.get(0), rest.get(1));
+				System.out.println(removed ? "Removed " + rest.get(1) : "No such mod: " + rest.get(1));
+			}
+			case "toggle" -> {
+				need(rest, 3, "toggle <profile> <file-name> <on|off>");
+				boolean on = rest.get(2).equalsIgnoreCase("on");
+				boolean changed = new ModInstaller(home).setEnabled(rest.get(0), rest.get(1), on);
+				System.out.println(changed
+						? rest.get(1) + " is now " + (on ? "enabled" : "disabled")
+						: "No such mod: " + rest.get(1));
+			}
 			case "java" -> javas();
 			case "install" -> {
 				need(rest, 1, "install <mc-version> [loader-version]");
@@ -95,8 +124,29 @@ public final class Main {
 				run(home, rest.get(0), rest.size() > 1 ? rest.get(1) : "Player");
 			}
 			case "prune" -> prune(home);
+			case "preview" -> {
+				// Renders the interface to PNGs without opening a window, so the design
+				// can be reviewed without taking over someone's screen.
+				need(rest, 1, "preview <output-dir>");
+				dev.loadout.launcher.ui.Preview.render(Path.of(rest.get(0)), home);
+				System.exit(0);
+			}
+			case "help" -> usage();
 			default -> usage();
 		}
+	}
+
+	private static void launchGui() {
+		if (java.awt.GraphicsEnvironment.isHeadless()) {
+			System.err.println("No display available. Run 'loadout help' for the command line.");
+			usage();
+			return;
+		}
+
+		javax.swing.SwingUtilities.invokeLater(() -> {
+			Theme.install();
+			new MainWindow(LoadoutHome.defaultHome()).setVisible(true);
+		});
 	}
 
 	private static void usage() {
@@ -119,6 +169,13 @@ public final class Main {
 				      Copy mod configs between profiles.
 				  prune
 				      Delete stored files nothing references any more.
+
+				  search <profile> <query>
+				      Find mods that fit a profile's Minecraft version and loader.
+				  add <profile> <project-id-or-slug>
+				      Install a mod and everything it requires.
+				  remove <profile> <file-name>
+				  toggle <profile> <file-name> <on|off>
 
 				  java
 				      List Java installations Loadout can find.
@@ -227,6 +284,65 @@ public final class Main {
 		for (Snapshot snapshot : snapshots) {
 			System.out.printf("%-22s %-14d %s%n",
 					snapshot.id(), snapshot.profile().mods().size(), snapshot.reason());
+		}
+	}
+
+	private static void search(LoadoutHome home, String profileName, String query) throws Exception {
+		if (!home.exists(profileName)) {
+			System.err.println("No profile called '" + profileName + "'. Try: loadout list");
+			System.exit(1);
+		}
+
+		Profile profile = home.loadProfile(profileName);
+		List<SearchResult> results = new ModBrowser()
+				.search(query, profile.minecraftVersion(), profile.loader(), "relevance", 15, 0);
+
+		if (results.isEmpty()) {
+			System.out.printf("Nothing found for '%s' on %s / %s.%n",
+					query, profile.minecraftVersion(), profile.loader());
+			return;
+		}
+
+		System.out.printf("Compatible with %s (%s)%n%n", profile.minecraftVersion(), profile.loader());
+		System.out.printf("%-26s %-8s %-30s %s%n", "SLUG", "DOWNLOADS", "NAME", "DESCRIPTION");
+		for (SearchResult result : results) {
+			System.out.printf("%-26s %-8s %-30s %s%n",
+					truncate(result.slug(), 26),
+					result.downloadsShort(),
+					truncate(result.title(), 30),
+					truncate(result.description(), 48));
+		}
+
+		System.out.printf("%nInstall with: loadout add %s <slug>%n", profileName);
+	}
+
+	private static void add(LoadoutHome home, String profileName, String projectId) throws Exception {
+		if (!home.exists(profileName)) {
+			System.err.println("No profile called '" + profileName + "'. Try: loadout list");
+			System.exit(1);
+		}
+
+		ModInstaller installer = new ModInstaller(home);
+		ModInstaller.Result result = installer.install(profileName, projectId,
+				(file, bytes) -> System.out.printf("  downloading %s (%.1f MB)%n", file, bytes / 1_048_576.0));
+
+		if (!result.alreadyPresent().isEmpty()) {
+			System.out.println("Already installed: " + String.join(", ", result.alreadyPresent()));
+		}
+		if (!result.unavailable().isEmpty()) {
+			System.out.println("No build for this version: " + String.join(", ", result.unavailable()));
+		}
+
+		if (!result.upgraded().isEmpty()) {
+			System.out.println("Upgraded in place:");
+			result.upgraded().forEach(line -> System.out.println("  " + line));
+		}
+
+		if (result.changedAnything() || !result.upgraded().isEmpty()) {
+			System.out.printf("%nInstalled %d file(s) into '%s':%n", result.installed().size(), profileName);
+			result.installed().forEach(name -> System.out.println("  " + name));
+		} else {
+			System.out.println("Nothing to do.");
 		}
 	}
 

@@ -7,7 +7,9 @@ import java.nio.file.StandardCopyOption;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Stream;
 
 /** Creating, changing and undoing changes to profiles. */
@@ -34,10 +36,29 @@ public final class ProfileManager {
 			throw new IOException("No mods found in " + modsDir);
 		}
 
+		// One bulk lookup resolves which Modrinth project each jar belongs to. Without
+		// this, imported mods carry no project id, and a later install can't tell that the
+		// profile already has Fabric API -- so it adds a second copy and the game stops
+		// starting. Files Modrinth doesn't host simply stay unresolved, which is fine
+		// because conflict detection falls back to the Fabric mod id.
+		Map<String, ModrinthVersion> identified = Map.of();
+		try {
+			Set<String> hashes = new HashSet<>();
+			jars.forEach(jar -> hashes.add(jar.sha512()));
+			identified = new ModrinthClient().identify(hashes);
+		} catch (IOException | InterruptedException e) {
+			if (e instanceof InterruptedException) {
+				Thread.currentThread().interrupt();
+			}
+			// Offline import is still worth doing; only the project ids are lost.
+		}
+
 		List<Profile.Entry> entries = new ArrayList<>(jars.size());
 		for (ModJar jar : jars) {
 			String hash = this.home.store().put(jar.path(), jar.sha512());
-			entries.add(new Profile.Entry(hash, jar.fileName(), jar.enabled(), null, jar.version()));
+			ModrinthVersion known = identified.get(jar.sha512());
+			entries.add(new Profile.Entry(hash, jar.fileName(), jar.enabled(),
+					known == null ? null : known.projectId(), jar.version(), jar.modId()));
 		}
 
 		Profile profile = new Profile(name, minecraftVersion, loader, entries);
@@ -120,7 +141,8 @@ public final class ProfileManager {
 					replacement.fileName(),
 					entry.enabled(),
 					replacement.projectId(),
-					replacement.versionNumber()));
+					replacement.versionNumber(),
+					entry.modId()));
 			changed++;
 		}
 

@@ -1,6 +1,19 @@
 dependencies {
 	implementation project(':core')
 	implementation 'com.google.code.gson:gson:2.11.0'
+
+	// FlatLaf gives Swing a modern baseline -- real rounded controls, a proper dark
+	// theme, decent scrollbars. Apache-2.0, one small jar, no native libraries, so the
+	// launcher stays a single file you can double-click.
+	implementation 'com.formdev:flatlaf:3.6'
+	// Inter, bundled rather than downloaded. Typography is most of why a interface reads
+	// as modern, and shipping the font means it looks the same on a machine that has
+	// nothing installed.
+	implementation 'com.formdev:flatlaf-fonts-inter:4.1'
+
+	// Java's ImageIO cannot read WebP, and most Modrinth icons are WebP -- so without
+	// this every icon silently falls back to a placeholder. BSD-3-Clause, pure Java.
+	implementation 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
 }
 
 jar {
@@ -8,8 +21,7 @@ jar {
 		attributes 'Main-Class': 'dev.loadout.launcher.Main'
 	}
 
-	// A launcher people can double-click has to be one file. Fat-jarring is the whole
-	// reason this ships as a jar rather than as something needing a install step.
+	// A launcher people can double-click has to be one file.
 	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
 	from {
 		configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }

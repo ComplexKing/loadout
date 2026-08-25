@@ -30,7 +30,8 @@ public record ModrinthVersion(
 		String sha512,
 		long fileSize
 ) {
-	static ModrinthVersion from(JsonObject json) {
+	/** Parses Modrinth's version JSON. Public so the browse package can build these too. */
+	public static ModrinthVersion from(JsonObject json) {
 		// A version can carry several files -- a jar plus sources, or platform variants.
 		// The one flagged primary is what a user is meant to install; falling back to the
 		// first keeps older entries that predate the flag working.

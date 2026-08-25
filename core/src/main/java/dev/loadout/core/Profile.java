@@ -26,16 +26,21 @@ public final class Profile {
 	 * @param projectId Modrinth project, when known. Kept so updates can be found later
 	 *     without re-resolving, and so a mod stays identifiable after its hash changes.
 	 * @param versionNumber the author's version string, for display
+	 * @param modId the id from fabric.mod.json. This is what actually decides whether two
+	 *     jars conflict: the loader refuses to start with two mods declaring the same id,
+	 *     and unlike a Modrinth project id it is present in every jar whether or not
+	 *     anyone has ever published it.
 	 */
 	public record Entry(
 			String sha512,
 			String fileName,
 			boolean enabled,
 			String projectId,
-			String versionNumber
+			String versionNumber,
+			String modId
 	) {
 		public Entry withEnabled(boolean value) {
-			return new Entry(this.sha512, this.fileName, value, this.projectId, this.versionNumber);
+			return new Entry(this.sha512, this.fileName, value, this.projectId, this.versionNumber, this.modId);
 		}
 	}
 
@@ -91,7 +96,7 @@ public final class Profile {
 	public static Profile fromScan(String name, String minecraftVersion, String loader, List<ModJar> jars) {
 		List<Entry> entries = new ArrayList<>(jars.size());
 		for (ModJar jar : jars) {
-			entries.add(new Entry(jar.sha512(), jar.fileName(), jar.enabled(), null, jar.version()));
+			entries.add(new Entry(jar.sha512(), jar.fileName(), jar.enabled(), null, jar.version(), jar.modId()));
 		}
 		return new Profile(name, minecraftVersion, loader, entries);
 	}
