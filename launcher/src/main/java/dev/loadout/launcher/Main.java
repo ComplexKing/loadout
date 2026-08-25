@@ -25,6 +25,7 @@ import dev.loadout.core.source.SourceRegistry;
 import dev.loadout.launcher.ui.MainWindow;
 import dev.loadout.launcher.ui.Theme;
 import com.google.gson.JsonObject;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
@@ -119,8 +120,8 @@ public final class Main {
 			}
 			case "sources" -> sources(home);
 			case "key" -> {
-				need(rest, 2, "key curseforge <api-key>");
-				setKey(home, rest.get(0), rest.get(1));
+				need(rest, 1, "key curseforge [<api-key>]");
+				setKey(home, rest.get(0), rest.size() > 1 ? rest.get(1) : null);
 			}
 			case "java" -> javas();
 			case "install" -> {
@@ -190,8 +191,10 @@ public final class Main {
 				      modrinth, so "loadout add main sodium" works.
 				  sources
 				      Show which mod sources are usable.
-				  key curseforge <api-key>
-				      Store a CurseForge API key from console.curseforge.com.
+				  key curseforge [<api-key>]
+				      Store a CurseForge API key from console.curseforge.com. Omit the key
+				      to be prompted for it, which keeps it out of your shell history and
+				      stops the shell expanding the $ sections it contains.
 				  remove <profile> <file-name>
 				  toggle <profile> <file-name> <on|off>
 
@@ -417,6 +420,31 @@ public final class Main {
 	 * but rejected is the most likely reason -- so reporting "ready" on the strength of a
 	 * key existing would hide the exact fault someone ran this to find.
 	 */
+	/**
+	 * Asks for the key without it passing through the shell.
+	 *
+	 * <p>Three problems disappear at once. The shell cannot expand what it never parses,
+	 * so a key full of $ arrives intact. It stays out of shell history. And it stays out
+	 * of the process argument list, which on both Windows and Linux is readable by other
+	 * processes -- a credential passed as an argument is visible to anything that can list
+	 * processes for the duration of the call.
+	 */
+	private static String promptForKey() {
+		java.io.Console console = System.console();
+		if (console != null) {
+			// Not echoed, so it cannot be read over a shoulder or left in a scrollback.
+			char[] entered = console.readPassword("CurseForge API key (input hidden): ");
+			return entered == null ? null : new String(entered).trim();
+		}
+
+		// No console: being piped to, so read a line and let the caller decide what that
+		// means. Supports "type key.txt | loadout key curseforge".
+		System.out.println("Reading key from standard input...");
+		try (java.util.Scanner scanner = new java.util.Scanner(System.in, StandardCharsets.UTF_8)) {
+			return scanner.hasNextLine() ? scanner.nextLine().trim() : null;
+		}
+	}
+
 	private static void sources(LoadoutHome home) {
 		SourceRegistry registry = home.sources();
 		System.out.printf("%-14s %-12s %s%n", "SOURCE", "STATUS", "NOTE");
@@ -441,22 +469,42 @@ public final class Main {
 			System.exit(1);
 		}
 
-		// Checked before it is stored. A key that is silently accepted and then rejected
-		// on every request shows up as half the search results missing, which reads as a
-		// broken feature rather than a bad credential.
+		String key = value == null ? promptForKey() : value;
+		if (key == null || key.isBlank()) {
+			System.err.println("No key entered. Nothing was saved.");
+			System.exit(1);
+		}
+
+		// A key on the command line is mangled before this program ever sees it. CurseForge
+		// issues them in the bcrypt style, so they contain $ -- and an unquoted $2a$10$...
+		// is three variable expansions to any shell, which silently eat everything up to
+		// the last one. The result is a shorter string that looks like a key and is
+		// rejected on every request. Warning is better than guessing: the value may still
+		// be legitimate, and refusing it outright would be the same mistake as the shape
+		// check this replaced.
+		if (value != null && !value.startsWith("$") && value.length() < 50) {
+			System.out.println("Note: that does not look like a whole CurseForge key.");
+			System.out.println("If you passed it on the command line, your shell may have eaten");
+			System.out.println("the $ sections. Run 'loadout key curseforge' with no key to be");
+			System.out.println("prompted instead, which avoids the problem entirely.");
+			System.out.println();
+		}
+
 		System.out.println("Checking the key with CurseForge...");
-		ModSource.Verification check = new SourceRegistry(value).get(SourceId.CURSEFORGE).verify();
+		ModSource.Verification check = new SourceRegistry(key).get(SourceId.CURSEFORGE).verify();
 
 		if (!check.succeeded()) {
 			System.err.println("That key was not accepted: " + check.detail());
 			System.err.println();
-			System.err.println("Nothing was saved. Copy the whole key from console.curseforge.com");
-			System.err.println("and try again.");
+			System.err.println("Nothing was saved; any key you had before is untouched.");
+			System.err.println();
+			System.err.println("To enter it without the shell touching it, run:");
+			System.err.println("    loadout key curseforge");
 			System.exit(1);
 		}
 
 		Settings settings = home.settings();
-		settings.setCurseForgeApiKey(value);
+		settings.setCurseForgeApiKey(key);
 		settings.save(home.root());
 		// Never echo the key back.
 		System.out.println("Key accepted and saved to " + Settings.fileIn(home.root()));

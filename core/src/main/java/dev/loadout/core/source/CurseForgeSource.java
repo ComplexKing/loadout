@@ -62,8 +62,11 @@ public final class CurseForgeSource implements ModSource {
 	/**
 	 * Confirms the key is accepted, by asking for the one game we care about.
 	 *
-	 * <p>A cheap endpoint on purpose: this runs whenever someone enters a key, and the
-	 * only question is whether the credential is honoured.
+	 * <p>The server decides, not us. An earlier version refused keys that did not match
+	 * the shape CurseForge currently issues, which would have rejected a perfectly good
+	 * key the day they change format -- and a local guess overruling the actual
+	 * authority is the wrong way round. The shape is now only used to explain a refusal
+	 * the server has already made.
 	 */
 	@Override
 	public Verification verify() {
@@ -71,26 +74,48 @@ public final class CurseForgeSource implements ModSource {
 			return Verification.failed(unavailableReason());
 		}
 
-		// The shape is worth checking before spending a request. CurseForge issues keys as
-		// a bcrypt-style string, and the usual failure is a partial copy from the console
-		// rather than an outright wrong value -- which this catches with a clearer message
-		// than the server's own 403.
-		if (this.apiKey.length() < 50 || !this.apiKey.startsWith("$")) {
-			return Verification.failed(
-					"That does not look like a CurseForge API key. They are around 60 characters"
-							+ " and begin with $. Check the whole value was copied from"
-							+ " console.curseforge.com.");
-		}
-
 		try {
 			this.http.getObject(API + "/games/" + MINECRAFT);
 			return Verification.ok();
 		} catch (IOException e) {
-			return Verification.failed(e.getMessage());
+			return Verification.failed(e.getMessage() + shapeHint());
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			return Verification.failed("Interrupted while checking the key");
 		}
+	}
+
+	/**
+	 * A guess at why a rejected key was rejected, appended to the server's own message.
+	 *
+	 * <p>Worth the effort because the common failure is invisible: CurseForge shows keys
+	 * in the bcrypt style, where {@code $}, {@code .} and {@code /} all end a word as far
+	 * as text selection is concerned. Double-clicking one therefore highlights a fragment
+	 * in the middle, and the fragment looks like a complete key to anyone who just watched
+	 * it highlight. A 403 alone sends people round that loop repeatedly.
+	 *
+	 * <p>Never includes the key itself. Length and first character are enough to tell a
+	 * truncated paste from a revoked credential, and neither is much use to anyone reading
+	 * over a shoulder.
+	 */
+	private String shapeHint() {
+		int length = this.apiKey.length();
+
+		// The right shape means the value is plausible and the problem is the credential
+		// itself, not the copy. Different advice entirely.
+		if (this.apiKey.startsWith("$") && length >= 50) {
+			return " The key is the right shape, so it is more likely revoked, or issued"
+					+ " under a different CurseForge account. Check it is still listed at"
+					+ " console.curseforge.com.";
+		}
+
+		return " The key received was " + length + " characters"
+				+ (this.apiKey.startsWith("$") ? "" : " and did not begin with $")
+				+ ", but CurseForge issues keys of around 60 beginning with $2a$10$."
+				+ " That usually means only part of it was copied: the key contains $ and ."
+				+ " characters, which end a word for selection purposes, so double-clicking"
+				+ " highlights a fragment rather than the whole value. Click into the field"
+				+ " and press Ctrl+A, or use the copy button beside the key.";
 	}
 
 	/** CurseForge's numeric loader ids. */

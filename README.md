@@ -88,6 +88,24 @@ install <mc-version> [loader]       download Minecraft, Fabric and assets
 run <profile> [username]            launch a profile
 ```
 
+## CurseForge
+
+Modrinth works with no setup. CurseForge needs an API key from
+[console.curseforge.com](https://console.curseforge.com):
+
+```bash
+loadout key curseforge
+```
+
+Run it with no key and it prompts, with the input hidden. Pass the key as an argument
+instead and your shell will eat it: CurseForge issues keys in the bcrypt style, so an
+unquoted `$2a$10$...` is three variable expansions and arrives truncated. The prompt also
+keeps the key out of your shell history and out of the process argument list, which other
+processes can read.
+
+The key is checked against CurseForge before it is stored, so a bad one is refused rather
+than saved and rejected on every later request.
+
 ## Installing
 
 ```bash
