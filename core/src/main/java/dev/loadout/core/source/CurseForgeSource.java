@@ -59,6 +59,40 @@ public final class CurseForgeSource implements ModSource {
 				: "Needs an API key from console.curseforge.com. Add it with: loadout key curseforge <key>";
 	}
 
+	/**
+	 * Confirms the key is accepted, by asking for the one game we care about.
+	 *
+	 * <p>A cheap endpoint on purpose: this runs whenever someone enters a key, and the
+	 * only question is whether the credential is honoured.
+	 */
+	@Override
+	public Verification verify() {
+		if (!isAvailable()) {
+			return Verification.failed(unavailableReason());
+		}
+
+		// The shape is worth checking before spending a request. CurseForge issues keys as
+		// a bcrypt-style string, and the usual failure is a partial copy from the console
+		// rather than an outright wrong value -- which this catches with a clearer message
+		// than the server's own 403.
+		if (this.apiKey.length() < 50 || !this.apiKey.startsWith("$")) {
+			return Verification.failed(
+					"That does not look like a CurseForge API key. They are around 60 characters"
+							+ " and begin with $. Check the whole value was copied from"
+							+ " console.curseforge.com.");
+		}
+
+		try {
+			this.http.getObject(API + "/games/" + MINECRAFT);
+			return Verification.ok();
+		} catch (IOException e) {
+			return Verification.failed(e.getMessage());
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			return Verification.failed("Interrupted while checking the key");
+		}
+	}
+
 	/** CurseForge's numeric loader ids. */
 	private static int loaderId(String loader) {
 		return switch (loader == null ? "" : loader.toLowerCase()) {

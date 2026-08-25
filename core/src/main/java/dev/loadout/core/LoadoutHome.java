@@ -92,7 +92,78 @@ public final class LoadoutHome {
 	}
 
 	public Path profileDir(String name) {
-		return this.root.resolve("profiles").resolve(name);
+		return this.root.resolve("profiles").resolve(requireValidName(name));
+	}
+
+	/**
+	 * Rejects anything that is not a plain folder name.
+	 *
+	 * <p>Every path in a profile is built by resolving its name against a directory, so a
+	 * name containing a separator or ".." would escape the profiles folder
+	 * entirely -- and "delete this profile" would become "delete that folder". Harmless
+	 * while names only came from a person typing a CLI argument; not once they arrive over
+	 * HTTP from a UI.
+	 *
+	 * <p>Validating here rather than at each caller is deliberate: this is the one place
+	 * every profile path is constructed, so nothing can route around it.
+	 */
+	public static String requireValidName(String name) {
+		if (name == null || name.isBlank()) {
+			throw new IllegalArgumentException("Profile name cannot be empty");
+		}
+		if (name.length() > 64) {
+			throw new IllegalArgumentException("Profile name is too long (max 64 characters)");
+		}
+		if (name.contains("/") || name.contains("\\") || name.chars().anyMatch(c -> c < 0x20)) {
+			throw new IllegalArgumentException(
+					"Profile name cannot contain path separators or control characters: " + name);
+		}
+		if (name.equals(".") || name.equals("..")) {
+			throw new IllegalArgumentException("Profile name cannot be " + name);
+		}
+		// Windows resolves these to devices wherever they appear as a file name, with or
+		// without an extension, so a profile called "CON" would produce paths that open a
+		// console handle instead of a folder.
+		String stem = name.contains(".") ? name.substring(0, name.indexOf('.')) : name;
+		if (RESERVED_NAMES.contains(stem.toUpperCase())) {
+			throw new IllegalArgumentException("Profile name is reserved by Windows: " + name);
+		}
+		// Trailing dots and spaces are silently stripped by Windows, so "foo " and "foo"
+		// would be the same folder while looking like different profiles.
+		if (!name.equals(name.strip()) || name.endsWith(".")) {
+			throw new IllegalArgumentException("Profile name cannot start or end with spaces or a dot");
+		}
+		return name;
+	}
+
+	private static final Set<String> RESERVED_NAMES = Set.of(
+			"CON", "PRN", "AUX", "NUL",
+			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9");
+
+	/**
+	 * Removes a profile, leaving its snapshots behind.
+	 *
+	 * <p>Keeping the snapshots is what makes this recoverable: they hold the full mod list
+	 * and the store still has the files, so a deletion can be undone until someone runs a
+	 * prune. That matters more with a UI than it did with a CLI -- a button is much easier
+	 * to press by accident than a command is to type.
+	 *
+	 * @return false if there was no such profile
+	 */
+	public boolean deleteProfile(String name) throws IOException {
+		if (!exists(name)) {
+			return false;
+		}
+
+		Path dir = profileDir(name);
+		try (Stream<Path> walk = Files.walk(dir)) {
+			// Deepest first, because a directory cannot be removed until it is empty.
+			for (Path path : walk.sorted(java.util.Comparator.reverseOrder()).toList()) {
+				Files.deleteIfExists(path);
+			}
+		}
+		return true;
 	}
 
 	public Path modsDir(String name) {

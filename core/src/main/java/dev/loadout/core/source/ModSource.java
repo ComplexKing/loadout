@@ -34,6 +34,39 @@ public interface ModSource {
 	String unavailableReason();
 
 	/**
+	 * Actually checks the source works, credentials included.
+	 *
+	 * <p>Distinct from {@link #isAvailable()}, which only reports whether a key is
+	 * present. A key can be present and wrong -- mistyped, truncated by a copy, or
+	 * revoked -- and the difference only shows up when a request is made. Without this,
+	 * the first sign of a bad key is an empty half of a search result, which reads as
+	 * the feature being broken rather than the credential.
+	 *
+	 * <p>Makes a network call, so it belongs at the point a key is entered rather than
+	 * in a listing.
+	 */
+	default Verification verify() {
+		return isAvailable()
+				? Verification.ok()
+				: Verification.failed(unavailableReason());
+	}
+
+	/**
+	 * @param succeeded named this rather than "ok" so the factory below can be called
+	 *     {@code ok()} -- a record component of that name would claim the accessor
+	 * @param detail what went wrong, or null when nothing did
+	 */
+	record Verification(boolean succeeded, String detail) {
+		public static Verification ok() {
+			return new Verification(true, null);
+		}
+
+		public static Verification failed(String detail) {
+			return new Verification(false, detail);
+		}
+	}
+
+	/**
 	 * Searches for mods matching a query.
 	 *
 	 * @param query free text; empty means "most popular for these filters"

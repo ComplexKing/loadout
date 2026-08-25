@@ -125,10 +125,27 @@ it out for them. Loadout finds and selects a suitable JDK per version itself.
 
 Set `LOADOUT_HOME` to relocate its data directory; it defaults to `~/.loadout`.
 
+## API
+
+`loadout serve` exposes the same core over HTTP on 127.0.0.1, so a desktop UI can drive
+it without reimplementing anything. It prints its port and access token as one line of
+JSON, then runs until stopped:
+
+```json
+{"ready":true,"port":47399,"token":"...","pid":24844}
+```
+
+Every request needs `Authorization: Bearer <token>`. Long operations — install, migrate,
+launch — return a job id immediately; `GET /events` streams their progress as
+server-sent events.
+
+The server is loopback-only, sends no CORS headers, and checks the `Host` header, so a
+web page cannot reach it even while the launcher is running.
+
 ## Not done yet
 
 - **Microsoft sign-in** — pending an approved Azure application.
-- **Graphical interface** — everything is CLI today.
+- **Graphical interface** — a desktop app over the `serve` API.
 
 ## Licence
 

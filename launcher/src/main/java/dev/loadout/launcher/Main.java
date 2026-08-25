@@ -132,6 +132,11 @@ public final class Main {
 				run(home, rest.get(0), rest.size() > 1 ? rest.get(1) : "Player");
 			}
 			case "prune" -> prune(home);
+			case "serve" -> {
+				// Blocks until killed. Everything it needs to announce -- port and token --
+				// goes to stdout as one JSON line for whichever process spawned it.
+				dev.loadout.launcher.serve.ApiServer.start(home, portFrom(rest));
+			}
 			case "preview" -> {
 				// Renders the interface to PNGs without opening a window, so the design
 				// can be reviewed without taking over someone's screen.
@@ -196,7 +201,30 @@ public final class Main {
 				      Download Minecraft, Fabric and assets. Shared between profiles.
 				  run <profile> [username]
 				      Launch a profile. Offline session unless an account is configured.
+
+				  serve [--port <n>]
+				      Expose the API on 127.0.0.1 for a desktop UI to drive. Prints its
+				      port and access token as JSON, then runs until stopped.
 				""");
+	}
+
+	/** Reads --port, defaulting to 0 so the OS picks a free one. */
+	private static int portFrom(List<String> args) {
+		int at = args.indexOf("--port");
+		if (at < 0) {
+			return 0;
+		}
+		if (at + 1 >= args.size()) {
+			System.err.println("usage: loadout serve [--port <n>]");
+			System.exit(2);
+		}
+		try {
+			return Integer.parseInt(args.get(at + 1));
+		} catch (NumberFormatException e) {
+			System.err.println("Not a port number: " + args.get(at + 1));
+			System.exit(2);
+			return 0;
+		}
 	}
 
 	private static void need(List<String> args, int count, String form) {
@@ -381,14 +409,29 @@ public final class Main {
 		}
 	}
 
+	/**
+	 * Reports which sources actually work.
+	 *
+	 * <p>Each configured source is contacted rather than merely inspected. This command
+	 * exists to answer "why am I not seeing CurseForge results", and a key that is present
+	 * but rejected is the most likely reason -- so reporting "ready" on the strength of a
+	 * key existing would hide the exact fault someone ran this to find.
+	 */
 	private static void sources(LoadoutHome home) {
 		SourceRegistry registry = home.sources();
 		System.out.printf("%-14s %-12s %s%n", "SOURCE", "STATUS", "NOTE");
+
 		for (ModSource source : registry.all()) {
+			if (!source.isAvailable()) {
+				System.out.printf("%-14s %-12s %s%n", source.id().key(), "off", source.unavailableReason());
+				continue;
+			}
+
+			ModSource.Verification check = source.verify();
 			System.out.printf("%-14s %-12s %s%n",
 					source.id().key(),
-					source.isAvailable() ? "ready" : "off",
-					source.isAvailable() ? "" : source.unavailableReason());
+					check.succeeded() ? "ready" : "error",
+					check.succeeded() ? "" : check.detail());
 		}
 	}
 
@@ -398,12 +441,25 @@ public final class Main {
 			System.exit(1);
 		}
 
+		// Checked before it is stored. A key that is silently accepted and then rejected
+		// on every request shows up as half the search results missing, which reads as a
+		// broken feature rather than a bad credential.
+		System.out.println("Checking the key with CurseForge...");
+		ModSource.Verification check = new SourceRegistry(value).get(SourceId.CURSEFORGE).verify();
+
+		if (!check.succeeded()) {
+			System.err.println("That key was not accepted: " + check.detail());
+			System.err.println();
+			System.err.println("Nothing was saved. Copy the whole key from console.curseforge.com");
+			System.err.println("and try again.");
+			System.exit(1);
+		}
+
 		Settings settings = home.settings();
 		settings.setCurseForgeApiKey(value);
 		settings.save(home.root());
 		// Never echo the key back.
-		System.out.println("CurseForge key saved to " + Settings.fileIn(home.root()));
-		System.out.println("Check it with: loadout sources");
+		System.out.println("Key accepted and saved to " + Settings.fileIn(home.root()));
 	}
 
 	private static void javas() {
