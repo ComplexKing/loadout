@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld('loadout', {
 	search: (query) => invoke('search', query),
 	versions: (source, id, profile) => invoke('versions', source, id, profile),
 	java: () => invoke('java:list'),
+	minecraftVersions: () => invoke('minecraft:versions'),
 
 	jobs: {
 		list: () => invoke('jobs:list'),

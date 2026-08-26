@@ -268,7 +268,24 @@
 		<div class="two-up">
 			<div>
 				<label for="nd-version">Minecraft version</label>
-				<input id="nd-version" type="text" autocomplete="off" required placeholder="1.21.1">
+				<div class="combo" id="nd-combo">
+					<input id="nd-version" type="text" autocomplete="off" required
+					       placeholder="Loading\u2026" role="combobox" aria-expanded="false"
+					       aria-autocomplete="list" aria-controls="nd-version-list">
+					<button type="button" class="combo-caret" id="nd-caret"
+					        tabindex="-1" aria-label="Show versions">
+						<svg class="ico sm"><use href="#i-chevron"/></svg>
+					</button>
+					<div class="combo-list" id="nd-version-list" role="listbox" hidden>
+						<!-- A div, not a label: a label toggles its checkbox on click as well,
+						     which would undo the toggle this row's own handler just made. -->
+						<div class="combo-head" id="nd-snapshots-row">
+							<input type="checkbox" id="nd-snapshots" tabindex="-1">
+							<span>Show all versions</span>
+						</div>
+						<div id="nd-version-options"></div>
+					</div>
+				</div>
 			</div>
 			<div>
 				<label for="nd-loader">Loader</label>

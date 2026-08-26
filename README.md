@@ -178,8 +178,11 @@ after `--tab=browse --query=shader` — so a layout can be reviewed without a wi
 repeatedly taking over the screen:
 
 ```bash
-npm start -- --dev --tab=browse --query=shader --screenshot=out.png
+npm start -- --dev --open="my instance" --tab=add --query=shader --screenshot=out.png
 ```
+
+`--view`, `--click` (several selectors separated by `|`) and `--eval` reach states that
+need more than one step, such as a dropdown inside a dialog.
 
 The renderer holds no API token. It talks to the main process over a fixed set of named
 IPC channels, and the main process holds the credential — which matters because the page

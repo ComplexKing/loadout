@@ -21,6 +21,9 @@ const state = {
 	modFilter: '',
 	searchSeq: 0,
 	icons: {},          // installed mod artwork, by file name
+	versions: null,     // Minecraft version catalogue, fetched once
+	latestRelease: null,
+	comboMarked: -1,    // keyboard position within the open version list
 };
 
 /* -- helpers -------------------------------------------------------------------------- */
@@ -351,6 +354,31 @@ async function refreshCurrent() {
 	}
 }
 
+/**
+ * Placeholder cards shown while a search is in flight.
+ *
+ * An empty results panel and a panel that has not been filled yet look identical, so
+ * without these the second before an answer arrives reads as "nothing found" -- and the
+ * layout jumps when the real cards land.
+ */
+function showSkeletons(node, count) {
+	clear(node);
+	for (let i = 0; i < (count || 6); i++) {
+		const card = el('div', 'skeleton-card');
+		card.appendChild(el('div', 'skeleton skeleton-art'));
+
+		const lines = el('div', 'skeleton-lines');
+		// Varied widths, so a grid of them does not read as a table.
+		for (const width of ['58%', '82%', '40%']) {
+			const line = el('div', 'skeleton skeleton-line');
+			line.style.width = width;
+			lines.appendChild(line);
+		}
+		card.appendChild(lines);
+		node.appendChild(card);
+	}
+}
+
 /* -- search --------------------------------------------------------------------------- */
 
 const debouncers = new Map();
@@ -368,6 +396,12 @@ function debounce(key, fn, wait) {
  */
 async function search({ profileName, query, sort, source, resultsNode, notesNode }) {
 	const seq = ++state.searchSeq;
+
+	// Only when there is nothing to look at yet. Replacing results already on screen with
+	// placeholders on every keystroke is worse than letting them sit a moment longer.
+	if (resultsNode.childElementCount === 0) {
+		showSkeletons(resultsNode, 6);
+	}
 
 	const data = await call(api.search({
 		q: query, profile: profileName, sort, source, limit: 40,
@@ -609,6 +643,204 @@ async function openVersions(mod, profileName) {
 	});
 }
 
+/* -- version combobox ----------------------------------------------------------------- */
+
+/**
+ * The Minecraft version picker.
+ *
+ * A filtering text box rather than a select, because there are nine hundred versions and
+ * the one someone wants is almost always one they could nearly type. Typing narrows;
+ * the list confirms rather than being scrolled.
+ */
+async function loadVersions() {
+	if (state.versions) return;
+
+	const data = await call(api.minecraftVersions(), 'Could not load Minecraft versions');
+	if (!data) {
+		$('nd-version').placeholder = 'Type a version';
+		return;
+	}
+
+	state.versions = data.versions;
+	state.latestRelease = data.latestRelease;
+
+	const input = $('nd-version');
+	input.placeholder = 'Search versions';
+	// Prefilled with the current release, which is what most new instances want, while
+	// staying editable rather than being a decision already made.
+	if (!input.value && data.latestRelease) {
+		input.value = data.latestRelease;
+	}
+}
+
+function versionMatches() {
+	if (!state.versions) return [];
+
+	const typed = $('nd-version').value.trim().toLowerCase();
+	const includeAll = $('nd-snapshots').checked;
+
+	const eligible = state.versions.filter((v) => includeAll || v.type === 'release');
+
+	// Text that exactly names a version is a selection, not a search. Filtering on it would
+	// open the list showing only the row already chosen, which is useless -- the reason to
+	// open it is to see the alternatives.
+	const isSelection = eligible.some((v) => v.id.toLowerCase() === typed);
+
+	return (isSelection || !typed
+		? eligible
+		: eligible.filter((v) => v.id.toLowerCase().includes(typed))
+	).slice(0, 120);
+}
+
+function renderVersionList() {
+	// Options go in their own container so clearing them leaves the sticky header alone.
+	const list = $('nd-version-options');
+	const matches = versionMatches();
+	clear(list);
+	state.comboMarked = -1;
+
+	if (!state.versions) {
+		list.appendChild(el('div', 'combo-empty', 'Loading versions\u2026'));
+		return;
+	}
+	if (matches.length === 0) {
+		list.appendChild(el('div', 'combo-empty', 'No version matches that.'));
+		return;
+	}
+
+	matches.forEach((version, index) => {
+		const option = el('div', 'combo-option');
+		option.setAttribute('role', 'option');
+		option.dataset.index = String(index);
+
+		option.appendChild(el('span', 'id', version.id));
+		if (version.id === state.latestRelease) {
+			option.appendChild(el('span', 'pill ok', 'latest'));
+		} else if (version.type !== 'release') {
+			option.appendChild(el('span', 'pill', version.type.replace('old_', '')));
+		}
+		if (version.releasedAt) {
+			option.appendChild(el('span', 'when',
+				new Date(version.releasedAt).getFullYear()));
+		}
+
+		// mousedown, not click: the input loses focus first on click, and the blur handler
+		// closes the list before the click ever lands.
+		option.addEventListener('mousedown', (event) => {
+			event.preventDefault();
+			chooseVersion(version.id);
+		});
+		list.appendChild(option);
+	});
+}
+
+function openVersionList() {
+	renderVersionList();
+	$('nd-version-list').hidden = false;
+	$('nd-version').setAttribute('aria-expanded', 'true');
+
+	// Opened on a chosen version: put it under the cursor rather than making someone
+	// scroll to find where they already are.
+	const chosen = $('nd-version').value.trim().toLowerCase();
+	const options = $$('#nd-version-list .combo-option');
+	const at = options.findIndex((o) => o.querySelector('.id').textContent.toLowerCase() === chosen);
+
+	if (at >= 0) {
+		state.comboMarked = at;
+		options[at].classList.add('marked');
+		// scrollTop rather than scrollIntoView: the latter scrolls every ancestor that can
+		// scroll, which here means the dialog slides its own heading off the top.
+		const list = $('nd-version-list');
+		list.scrollTop = options[at].offsetTop - (list.clientHeight / 2) + (options[at].offsetHeight / 2);
+	}
+}
+
+function closeVersionList() {
+	$('nd-version-list').hidden = true;
+	$('nd-version').setAttribute('aria-expanded', 'false');
+	state.comboMarked = -1;
+}
+
+function chooseVersion(id) {
+	$('nd-version').value = id;
+	closeVersionList();
+}
+
+/** Moves the highlight, keeping it inside the scrolled area. */
+function markVersion(delta) {
+	const options = $$('#nd-version-list .combo-option');
+	if (options.length === 0) return;
+
+	const next = state.comboMarked + delta;
+	state.comboMarked = next < 0 ? options.length - 1 : (next >= options.length ? 0 : next);
+
+	options.forEach((option, index) =>
+		option.classList.toggle('marked', index === state.comboMarked));
+
+	// Kept inside the list's own scroll box, for the same reason as above.
+	const list = $('nd-version-list');
+	const option = options[state.comboMarked];
+	if (option.offsetTop < list.scrollTop) {
+		list.scrollTop = option.offsetTop;
+	} else if (option.offsetTop + option.offsetHeight > list.scrollTop + list.clientHeight) {
+		list.scrollTop = option.offsetTop + option.offsetHeight - list.clientHeight;
+	}
+}
+
+function wireVersionCombo() {
+	const input = $('nd-version');
+
+	input.addEventListener('focus', openVersionList);
+	input.addEventListener('input', openVersionList);
+	// The header lives inside the list, so clicking it would blur the input and the blur
+	// handler would close the list out from under the toggle. Holding focus keeps it open.
+	$('nd-snapshots-row').addEventListener('mousedown', (event) => {
+		event.preventDefault();
+		const box = $('nd-snapshots');
+		box.checked = !box.checked;
+		renderVersionList();
+	});
+
+	$('nd-caret').addEventListener('mousedown', (event) => {
+		event.preventDefault();
+		if ($('nd-version-list').hidden) {
+			input.focus();
+			openVersionList();
+		} else {
+			closeVersionList();
+		}
+	});
+
+	input.addEventListener('keydown', (event) => {
+		const open = !$('nd-version-list').hidden;
+
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			if (!open) { openVersionList(); }
+			markVersion(event.key === 'ArrowDown' ? 1 : -1);
+			return;
+		}
+
+		if (event.key === 'Enter' && open && state.comboMarked >= 0) {
+			// Only swallowed when a row is highlighted, so Enter still submits the dialog
+			// when someone has typed a version and not touched the list.
+			event.preventDefault();
+			const marked = $$('#nd-version-list .combo-option')[state.comboMarked];
+			if (marked) chooseVersion(marked.querySelector('.id').textContent);
+			return;
+		}
+
+		if (event.key === 'Escape' && open) {
+			// Closing the list, not the dialog -- which is what Escape would otherwise do.
+			event.preventDefault();
+			event.stopPropagation();
+			closeVersionList();
+		}
+	});
+
+	input.addEventListener('blur', () => setTimeout(closeVersionList, 120));
+}
+
 /* -- versions ------------------------------------------------------------------------- */
 
 async function renderSnapshots() {
@@ -833,8 +1065,14 @@ function wire() {
 
 	const openNew = () => {
 		$('nd-name').value = '';
-		$('nd-version').value = '';
+		$('nd-version').value = state.latestRelease || '';
+		$('nd-snapshots').checked = false;
+		closeVersionList();
 		$('new-dialog').showModal();
+		$('nd-name').focus();
+		// Fetched on first open rather than at startup: it is a few hundred kilobytes and
+		// most sessions never create an instance.
+		loadVersions();
 	};
 	$('rail-new').addEventListener('click', openNew);
 	$('home-new').addEventListener('click', openNew);
@@ -931,6 +1169,8 @@ function wire() {
 	$('job-cancel').addEventListener('click', () => {
 		if (state.job) api.jobs.cancel(state.job.id);
 	});
+
+	wireVersionCombo();
 
 	api.onJobEvent(onJobEvent);
 	api.onReady(start);

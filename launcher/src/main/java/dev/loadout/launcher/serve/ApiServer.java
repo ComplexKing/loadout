@@ -134,6 +134,8 @@ public final class ApiServer {
 		add("GET", "/versions", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.versions(query)));
 		add("GET", "/java", (exchange, path, query) -> Json.send(exchange, 200, this.routes.javaInstalls()));
+		add("GET", "/minecraft/versions", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.minecraftVersions()));
 
 		add("GET", "/jobs", (exchange, path, query) -> Json.send(exchange, 200, this.routes.jobs()));
 		add("GET", "/jobs/{id}", (exchange, path, query) ->

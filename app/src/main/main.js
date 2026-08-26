@@ -156,6 +156,7 @@ function registerHandlers() {
 	});
 
 	handle('java:list', () => api.get('/java'));
+	handle('minecraft:versions', () => api.get('/minecraft/versions'));
 	handle('jobs:list', () => api.get('/jobs'));
 	handle('jobs:cancel', (id) => api.request('POST', `/jobs/${encodeURIComponent(id)}/cancel`));
 
@@ -240,11 +241,30 @@ async function screenshotAndQuit(target) {
 
 	// A last click once everything has settled, for states that only exist after the page
 	// has data -- a dialog opened from a search result, say.
+	// Several selectors separated by | so a state two clicks deep can be reached, such as
+	// a dropdown inside a dialog.
 	const click = argOf('click');
 	if (click) {
-		await run(`document.querySelector(${JSON.stringify(click)})?.click()`);
-		await settle(2600);
+		for (const selector of click.split('|')) {
+			await run(`(() => {
+				const node = document.querySelector(${JSON.stringify(selector.trim())});
+				if (!node) { return; }
+				node.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+				node.click();
+			})()`);
+			await settle(1500);
+		}
+		await settle(1200);
 	}
+
+	// Arbitrary page script, for driving states no sequence of clicks reaches -- filling a
+	// form, say. Development only: it runs before the capture and its result is logged.
+	const evaluate = argOf('eval');
+	if (evaluate) {
+		console.log('[harness] eval', JSON.stringify(await run(evaluate)));
+		await settle(1800);
+	}
+
 
 	const image = await window.webContents.capturePage();
 	require('node:fs').writeFileSync(target, image.toPNG());

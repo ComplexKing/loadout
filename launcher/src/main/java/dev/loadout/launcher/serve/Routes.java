@@ -20,6 +20,7 @@ import dev.loadout.core.launch.GameSession;
 import dev.loadout.core.launch.JavaLocator;
 import dev.loadout.core.launch.LaunchBuilder;
 import dev.loadout.core.launch.LogRedactor;
+import dev.loadout.core.launch.VersionCatalog;
 import dev.loadout.core.source.ModSource;
 import dev.loadout.core.source.RemoteMod;
 import dev.loadout.core.source.SourceId;
@@ -521,6 +522,39 @@ final class Routes {
 		});
 
 		return jobRef(jobId);
+	}
+
+	/**
+	 * Every Minecraft version Mojang publishes, newest first.
+	 *
+	 * <p>Served so the interface can offer a list instead of a text box. A mistyped version
+	 * produces a profile that matches no mods at all, and that failure surfaces much later
+	 * as an empty search rather than as the typo it was.
+	 */
+	JsonObject minecraftVersions() throws IOException {
+		VersionCatalog.Catalog catalog;
+		try {
+			catalog = new VersionCatalog(new dev.loadout.core.launch.MetaClient()).fetch();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new ApiException(503, "Interrupted while fetching the version list");
+		}
+
+		JsonObject result = Json.object();
+		result.add("versions", Json.arrayOf(catalog.versions(), entry -> {
+			JsonObject json = Json.object();
+			json.addProperty("id", entry.id());
+			json.addProperty("type", entry.type());
+			json.addProperty("releasedAt", entry.releasedAt());
+			return json;
+		}));
+		if (catalog.latestRelease() != null) {
+			result.addProperty("latestRelease", catalog.latestRelease());
+		}
+		if (catalog.latestSnapshot() != null) {
+			result.addProperty("latestSnapshot", catalog.latestSnapshot());
+		}
+		return result;
 	}
 
 	JsonObject javaInstalls() {

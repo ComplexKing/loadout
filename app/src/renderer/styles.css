@@ -851,6 +851,10 @@ img.art { color: transparent; }
 	   what centres a modal in the viewport -- without this it renders in the top-left
 	   corner and hangs off the edge. */
 	margin: auto;
+	/* The browser gives <dialog> overflow:auto, which makes it a scroll container and
+	   clips the version dropdown at its edge. Every dialog here is short, and the one long
+	   list has its own inner scroller, so nothing needs the dialog itself to scroll. */
+	overflow: visible;
 	background: var(--surface);
 	border: 1px solid var(--line-2);
 	border-radius: var(--r-lg);
@@ -908,6 +912,153 @@ img.art { color: transparent; }
 	gap: 8px;
 	margin-top: 22px;
 }
+
+
+/* -- combobox ------------------------------------------------------------------------ */
+
+/*
+ * A text box that filters a list, rather than a <select> holding nine hundred options.
+ * Minecraft's version list is far too long to scroll and the id people want is one they
+ * can nearly type -- so typing narrows, and the list confirms rather than being browsed.
+ */
+.combo { position: relative; }
+
+.combo input { width: 100%; padding-right: 34px; }
+
+.combo-caret {
+	position: absolute;
+	right: 6px; top: 50%;
+	transform: translateY(-50%);
+	width: 26px; height: 26px;
+	display: grid; place-items: center;
+	border: none;
+	background: transparent;
+	color: var(--text-3);
+	border-radius: 6px;
+	cursor: pointer;
+	transition: color 120ms var(--ease), background 120ms var(--ease);
+}
+
+.combo-caret:hover { color: var(--text); background: var(--surface-3); }
+
+.combo-list {
+	position: absolute;
+	top: calc(100% + 5px);
+	left: 0; right: 0;
+	z-index: 20;
+	max-height: 250px;
+	/* Free to be wider than the field it hangs from, since long snapshot ids would
+	   otherwise be truncated in the one place they need reading. */
+	min-width: 250px;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	background: var(--surface-2);
+	border: 1px solid var(--line-2);
+	border-radius: var(--r);
+	box-shadow: var(--shadow);
+	padding: 5px;
+}
+
+/* Sticky so it stays reachable however far down the list someone has scrolled. */
+.combo-head {
+	position: sticky;
+	top: -5px;
+	z-index: 1;
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	padding: 9px;
+	margin: -5px -5px 4px;
+	background: var(--surface-2);
+	border-bottom: 1px solid var(--line);
+	font-size: 12.5px;
+	color: var(--text-2);
+	cursor: pointer;
+	user-select: none;
+}
+
+.combo-head input {
+	width: 15px; height: 15px;
+	accent-color: var(--accent);
+	cursor: pointer;
+	flex: none;
+}
+
+.combo-option {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 7px 9px;
+	border-radius: var(--r-sm);
+	cursor: pointer;
+	font-size: 13px;
+	white-space: nowrap;
+}
+
+.combo-option:hover,
+.combo-option.marked {
+	background: var(--surface-3);
+}
+
+.combo-option .id { font-weight: 600; }
+.combo-option .when { color: var(--text-3); font-size: 12px; margin-left: auto; }
+
+.combo-empty {
+	padding: 12px 9px;
+	color: var(--text-3);
+	font-size: 13px;
+	text-align: center;
+}
+
+.checkbox {
+	display: flex !important;
+	align-items: center;
+	gap: 9px;
+	margin-top: 16px !important;
+	cursor: pointer;
+	color: var(--text-2);
+	font-size: 13px;
+}
+
+.checkbox input {
+	width: 16px !important;
+	height: 16px;
+	accent-color: var(--accent);
+	cursor: pointer;
+	flex: none;
+}
+
+/* -- loading skeletons ---------------------------------------------------------------- */
+
+/*
+ * Shown while a search is in flight. An empty panel and a panel with no results look
+ * identical, so without these the half second before an answer reads as "nothing found".
+ */
+.skeleton {
+	background: linear-gradient(90deg, var(--surface) 25%, var(--surface-2) 37%, var(--surface) 63%);
+	background-size: 400% 100%;
+	animation: shimmer 1.3s ease-in-out infinite;
+	border-radius: var(--r-sm);
+}
+
+@keyframes shimmer {
+	0% { background-position: 100% 0; }
+	100% { background-position: -100% 0; }
+}
+
+.skeleton-card {
+	display: grid;
+	grid-template-columns: 52px minmax(0, 1fr);
+	gap: 14px;
+	padding: 15px 16px;
+	background: var(--surface);
+	border: 1px solid var(--line);
+	border-radius: var(--r);
+}
+
+.skeleton-art { width: 52px; height: 52px; border-radius: 12px; }
+.skeleton-lines { display: flex; flex-direction: column; gap: 8px; justify-content: center; }
+.skeleton-line { height: 11px; }
 
 /* -- scrollbars ---------------------------------------------------------------------- */
 
