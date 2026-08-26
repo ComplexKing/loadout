@@ -177,6 +177,12 @@ function registerHandlers() {
 	handle('instance:export', (name, path, options) =>
 		api.request('POST', `/profiles/${encodeURIComponent(name)}/export`, { path, ...options }));
 
+	handle('options:get', (name) => api.get(`/profiles/${encodeURIComponent(name)}/options`));
+	handle('options:set', (name, options) =>
+		api.request('PUT', `/profiles/${encodeURIComponent(name)}/options`, options));
+	handle('options:defaults', () => api.get('/settings/game'));
+	handle('options:setDefaults', (options) => api.request('PUT', '/settings/game', options));
+
 	handle('java:list', () => api.get('/java'));
 	handle('minecraft:versions', () => api.get('/minecraft/versions'));
 	handle('jobs:list', () => api.get('/jobs'));
@@ -265,8 +271,9 @@ async function screenshotAndQuit(target) {
 
 	const tab = argOf('tab');
 	if (tab) {
-		await pick('.seg', tab);
-		await settle(600);
+		// The instance sub-nav; .seg is the Installed/Add switch, which is a different thing.
+		await pick('#subnav .subnav-item', tab);
+		await settle(900);
 	}
 
 	const query = argOf('query');

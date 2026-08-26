@@ -2,6 +2,7 @@ package dev.loadout.launcher.serve;
 
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+import dev.loadout.core.GameOptions;
 import dev.loadout.core.LoadoutHome;
 import dev.loadout.core.MigrationPlan;
 import dev.loadout.core.MigrationPlanner;
@@ -500,6 +501,84 @@ final class Routes {
 		return jobRef(jobId);
 	}
 
+	// -- launch options ---------------------------------------------------------------
+
+	private static JsonObject optionsJson(GameOptions options) {
+		JsonObject json = Json.object();
+
+		// Nulls are omitted rather than sent as zero, because "not set" and "set to nothing"
+		// mean different things here: one follows the default and the other overrides it.
+		if (options.memoryMinMb() != null) json.addProperty("memoryMinMb", options.memoryMinMb());
+		if (options.memoryMaxMb() != null) json.addProperty("memoryMaxMb", options.memoryMaxMb());
+		if (options.javaPath() != null) json.addProperty("javaPath", options.javaPath());
+		if (options.jvmArgs() != null) json.addProperty("jvmArgs", options.jvmArgs());
+		if (options.windowWidth() != null) json.addProperty("windowWidth", options.windowWidth());
+		if (options.windowHeight() != null) json.addProperty("windowHeight", options.windowHeight());
+		if (options.preLaunchCommand() != null) json.addProperty("preLaunchCommand", options.preLaunchCommand());
+		if (options.postExitCommand() != null) json.addProperty("postExitCommand", options.postExitCommand());
+
+		json.addProperty("fullscreen", options.fullscreen());
+		json.addProperty("overrideMemory", options.overrideMemory());
+		json.addProperty("overrideJava", options.overrideJava());
+		json.addProperty("overrideWindow", options.overrideWindow());
+		json.addProperty("overrideCommands", options.overrideCommands());
+		return json;
+	}
+
+	private static GameOptions optionsFrom(JsonObject body) {
+		GameOptions options = new GameOptions();
+		options.setMemory(optionalInt(body, "memoryMinMb"), optionalInt(body, "memoryMaxMb"));
+		options.setJava(Json.optionalString(body, "javaPath", null),
+				Json.optionalString(body, "jvmArgs", null));
+		options.setWindow(optionalInt(body, "windowWidth"), optionalInt(body, "windowHeight"),
+				Json.optionalBoolean(body, "fullscreen", false));
+		options.setCommands(Json.optionalString(body, "preLaunchCommand", null),
+				Json.optionalString(body, "postExitCommand", null));
+		options.setOverrides(
+				Json.optionalBoolean(body, "overrideMemory", false),
+				Json.optionalBoolean(body, "overrideJava", false),
+				Json.optionalBoolean(body, "overrideWindow", false),
+				Json.optionalBoolean(body, "overrideCommands", false));
+		return options;
+	}
+
+	private static Integer optionalInt(JsonObject body, String field) {
+		var element = body.get(field);
+		return element == null || element.isJsonNull() ? null : element.getAsInt();
+	}
+
+	JsonObject instanceOptions(String profileName) throws IOException {
+		Profile profile = require(profileName);
+
+		JsonObject result = Json.object();
+		result.add("options", optionsJson(profile.options()));
+		result.add("defaults", optionsJson(this.home.settings().gameDefaults()));
+		result.add("effective", optionsJson(
+				GameOptions.resolve(this.home.settings().gameDefaults(), profile.options())));
+		return result;
+	}
+
+	JsonObject setInstanceOptions(String profileName, JsonObject body) throws IOException {
+		Profile profile = require(profileName);
+		profile.setOptions(optionsFrom(body));
+		this.home.saveProfile(profile);
+		return instanceOptions(profileName);
+	}
+
+	JsonObject gameDefaults() throws IOException {
+		JsonObject result = Json.object();
+		result.add("defaults", optionsJson(this.home.settings().gameDefaults()));
+		result.addProperty("systemMemoryMb", GameOptions.systemMemoryMb());
+		return result;
+	}
+
+	JsonObject setGameDefaults(JsonObject body) throws IOException {
+		Settings settings = this.home.settings();
+		settings.setGameDefaults(optionsFrom(body));
+		settings.save(this.home.root());
+		return gameDefaults();
+	}
+
 	// -- snapshots -------------------------------------------------------------------
 
 	JsonObject snapshots(String profileName) throws IOException {
@@ -649,10 +728,30 @@ final class Routes {
 			LogRedactor redactor = new LogRedactor();
 			redactor.addSecret(account.accessToken());
 
+			// Resolved rather than read straight off the instance: an instance that does
+			// not override a group is meant to follow the global default, including one
+			// changed after the instance was made.
+			GameOptions options = GameOptions.resolve(
+					this.home.settings().gameDefaults(), profile.options());
+
+			List<String> jvmArgs = options.jvmArguments();
+			if (jvmArgs.isEmpty()) {
+				// Nothing configured anywhere. Two gigabytes starts a vanilla game and a
+				// light modpack, and is small enough not to matter on any machine that runs
+				// Minecraft at all.
+				jvmArgs = List.of("-Xmx2G");
+			}
+
+			String javaBinary = options.javaPath() != null
+					? options.javaPath()
+					: java.executable().toString();
+
 			List<String> command = LaunchBuilder.build(
-					java.executable().toString(), versionJson, fabric, installer,
+					javaBinary, versionJson, fabric, installer,
 					profile.minecraftVersion(), this.home.profileDir(profileName), account,
-					List.of("-Xmx4G"));
+					jvmArgs);
+
+			reporter.log("Heap: " + String.join(" ", jvmArgs));
 
 			reporter.progress("Running", 0, 0);
 			reporter.log("Launching as " + account.username() + " on Java " + java.majorVersion());

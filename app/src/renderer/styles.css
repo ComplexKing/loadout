@@ -213,7 +213,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 	display: flex;
 	flex-direction: column;
 	align-items: center;
-	gap: 6px;
+	gap: 9px;
 	overflow-y: auto;
 	/* Setting overflow-y to auto makes overflow-x compute to hidden whatever is written
 	   here, so the selected tile's ring is clipped unless there is room inside the box for
@@ -242,9 +242,18 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 	transition: transform 140ms var(--ease), border-radius 140ms var(--ease);
 }
 
-.rail-tile:hover { border-radius: 15px; transform: scale(1.05); }
+/*
+ * A transform raises an element in paint order, so a hovered neighbour was drawing over
+ * the selected tile's ring where the two nearly touch -- the ring appeared to be eaten
+ * from the side. Stacking the selected tile above its neighbours fixes that; the wider
+ * gap keeps the two from meeting in the first place.
+ */
+.rail-tile:hover { border-radius: 15px; transform: scale(1.05); z-index: 1; }
 
-.rail-tile.active { box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent); }
+.rail-tile.active {
+	box-shadow: 0 0 0 2px var(--bg), 0 0 0 4px var(--accent);
+	z-index: 2;
+}
 
 /* -- content ------------------------------------------------------------------------- */
 
@@ -697,7 +706,7 @@ img.art { color: transparent; }
 
 .inline-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 
-.inline-form input {
+.inline-form > input {
 	font: inherit;
 	padding: 9px 12px;
 	border-radius: 10px;
@@ -709,7 +718,7 @@ img.art { color: transparent; }
 	transition: border-color 140ms var(--ease), box-shadow 140ms var(--ease);
 }
 
-.inline-form input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+.inline-form > input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
 .plan-row {
 	display: flex; align-items: center; justify-content: space-between;
@@ -953,30 +962,35 @@ img.art { color: transparent; }
 	   otherwise be truncated in the one place they need reading. */
 	min-width: 250px;
 	overflow-y: auto;
+	overflow-x: hidden;
 	overscroll-behavior: contain;
 	background: var(--surface-2);
 	border: 1px solid var(--line-2);
 	border-radius: var(--r);
 	box-shadow: var(--shadow);
-	padding: 5px;
+	padding: 0;
 }
+
+.combo-list > div:last-child { padding: 5px; }
 
 /* Sticky so it stays reachable however far down the list someone has scrolled. */
 .combo-head {
 	position: sticky;
-	top: -5px;
+	top: 0;
 	z-index: 1;
 	display: flex;
 	align-items: center;
 	gap: 9px;
-	padding: 9px;
-	margin: -5px -5px 4px;
+	padding: 10px;
 	background: var(--surface-2);
 	border-bottom: 1px solid var(--line);
 	font-size: 12.5px;
 	color: var(--text-2);
 	cursor: pointer;
 	user-select: none;
+	/* The label is short and must stay on one line; wrapping it was what made the header
+	   three lines tall in a narrow dropdown. */
+	white-space: nowrap;
 }
 
 .combo-head input {
@@ -1360,3 +1374,115 @@ img.art { color: transparent; }
 :root[data-density="compact"] .hero { padding: 15px; }
 :root[data-density="compact"] .instance-panels,
 :root[data-density="compact"] .settings-panels { padding: 14px 20px 24px; }
+
+/* -- options form ----------------------------------------------------------------------- */
+
+.opt-group { border-top: 1px solid var(--line); padding-top: 14px; margin-top: 14px; }
+.opt-group:first-child { border-top: none; padding-top: 0; margin-top: 0; }
+
+.opt-head {
+	display: flex;
+	align-items: center;
+	justify-content: space-between;
+	gap: 12px;
+	margin-bottom: 10px;
+}
+
+.opt-title { font-weight: 620; font-size: 13.5px; }
+
+/* Dimmed rather than hidden when a group follows the global default: what it would be is
+   worth seeing, and hiding it makes the override toggle look like it does nothing. */
+.opt-fields {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 12px;
+	align-items: flex-end;
+	transition: opacity 160ms var(--ease);
+}
+
+.opt-fields.inherited { opacity: 0.45; pointer-events: none; }
+
+.opt-field { display: flex; flex-direction: column; gap: 5px; }
+.opt-field > span { font-size: 12px; color: var(--text-3); }
+
+.opt-field input[type="text"],
+.opt-field input[type="number"] {
+	background: var(--bg);
+	border: 1px solid var(--line-2);
+	border-radius: 9px;
+	color: var(--text);
+	padding: 8px 10px;
+	outline: none;
+	width: 130px;
+	transition: border-color 130ms var(--ease), box-shadow 130ms var(--ease);
+}
+
+.opt-field.wide input { width: 320px; }
+
+.opt-field input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+
+/* -- switch ------------------------------------------------------------------------------- */
+
+.switch {
+	position: relative;
+	width: 36px; height: 20px;
+	border-radius: 999px;
+	background: var(--surface-3);
+	border: none;
+	cursor: pointer;
+	flex: none;
+	transition: background 160ms var(--ease);
+}
+
+.switch::after {
+	content: '';
+	position: absolute;
+	top: 3px; left: 3px;
+	width: 14px; height: 14px;
+	border-radius: 50%;
+	background: var(--text-3);
+	transition: transform 160ms var(--ease), background 160ms var(--ease);
+}
+
+.switch.on { background: var(--accent-glow); }
+.switch.on::after { transform: translateX(16px); background: var(--accent); }
+
+.switch-row { display: flex; align-items: center; gap: 9px; font-size: 12.5px; color: var(--text-2); }
+
+.memory-hint { font-size: 12px; color: var(--text-3); width: 100%; }
+
+/*
+ * The dropdown's sticky header, stated explicitly.
+ *
+ * Written last and fully rather than relying on the flex defaults, because the generic
+ * span rules elsewhere in this file (auto margins on trailing labels, in particular) were
+ * reaching it and pushing the caption to the far edge where the list then clipped it.
+ */
+.combo-head {
+	display: flex !important;
+	flex-direction: row !important;
+	align-items: center !important;
+	justify-content: flex-start !important;
+	gap: 9px !important;
+	width: 100%;
+	box-sizing: border-box;
+}
+
+.combo-head > input[type="checkbox"] {
+	margin: 0 !important;
+	flex: 0 0 auto !important;
+	width: 15px !important;
+	min-width: 15px !important;
+	max-width: 15px !important;
+	height: 15px !important;
+	accent-color: var(--accent);
+}
+
+.combo-head > span {
+	margin: 0 !important;
+	flex: 1 1 auto !important;
+	min-width: 0;
+	text-align: left;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}

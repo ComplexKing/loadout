@@ -136,6 +136,17 @@ public final class ApiServer {
 		add("POST", "/profiles/{name}/export", (exchange, path, query) ->
 				Json.send(exchange, 202, this.routes.export(path.get("name"), Json.readObject(exchange))));
 
+		add("GET", "/profiles/{name}/options", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.instanceOptions(path.get("name"))));
+		add("PUT", "/profiles/{name}/options", (exchange, path, query) ->
+				Json.send(exchange, 200,
+						this.routes.setInstanceOptions(path.get("name"), Json.readObject(exchange))));
+
+		add("GET", "/settings/game", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.gameDefaults()));
+		add("PUT", "/settings/game", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.setGameDefaults(Json.readObject(exchange))));
+
 		add("GET", "/profiles/{name}/snapshots", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.snapshots(path.get("name"))));
 		add("POST", "/profiles/{name}/rollback", (exchange, path, query) ->

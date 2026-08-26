@@ -22,6 +22,7 @@ public final class Settings {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
 	private String curseForgeApiKey;
+	private GameOptions gameDefaults;
 
 	/** May be null; CurseForge is simply unavailable until one is set. */
 	public String curseForgeApiKey() {
@@ -30,6 +31,18 @@ public final class Settings {
 
 	public void setCurseForgeApiKey(String key) {
 		this.curseForgeApiKey = key == null || key.isBlank() ? null : key.trim();
+	}
+
+	/** Launch defaults every instance follows unless it overrides them. */
+	public GameOptions gameDefaults() {
+		if (this.gameDefaults == null) {
+			this.gameDefaults = new GameOptions();
+		}
+		return this.gameDefaults;
+	}
+
+	public void setGameDefaults(GameOptions replacement) {
+		this.gameDefaults = replacement;
 	}
 
 	public static Path fileIn(Path loadoutRoot) {

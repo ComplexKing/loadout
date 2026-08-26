@@ -228,7 +228,22 @@
 							<p class="sub">Every mod is checked for a matching build before anything
 								changes, and a snapshot is taken first so it can be undone.</p>
 							<div class="inline-form">
-								<input id="mig-target" type="text" placeholder="1.21.4" autocomplete="off">
+								<div class="combo" id="mig-combo">
+									<input id="mig-target" type="text" placeholder="Choose a version"
+									       autocomplete="off" role="combobox" aria-expanded="false"
+									       aria-autocomplete="list" aria-controls="mig-version-list">
+									<button type="button" class="combo-caret" id="mig-caret" tabindex="-1"
+									        aria-label="Show versions">
+										<svg class="ico sm"><use href="#i-chevron"/></svg>
+									</button>
+									<div class="combo-list" id="mig-version-list" role="listbox" hidden>
+										<div class="combo-head" id="mig-snapshots-row">
+											<input type="checkbox" id="mig-snapshots" tabindex="-1">
+											<span>Show all versions</span>
+										</div>
+										<div id="mig-version-options"></div>
+									</div>
+								</div>
 								<button id="mig-check" class="btn">Check</button>
 								<button id="mig-apply" class="btn primary" disabled>Apply</button>
 							</div>
@@ -240,6 +255,14 @@
 					</div>
 
 					<div class="panel" data-panel="settings" hidden>
+						<div class="card-block">
+							<h3>Java &amp; memory</h3>
+							<p class="sub">Each group follows the global default until you override it,
+								so changing a default later still reaches every instance that never
+								disagreed with it.</p>
+							<div id="instance-options"></div>
+						</div>
+
 						<div class="card-block">
 							<h3>Duplicate</h3>
 							<p class="sub">Copies the mod list and configs under a new name. Costs almost
@@ -369,6 +392,13 @@
 
 				<div class="panel" data-section="java" hidden>
 					<h2>Java</h2>
+
+					<div class="card-block">
+						<h3>Launch defaults</h3>
+						<p class="sub">Applied to every instance that does not override them.</p>
+						<div id="global-options"></div>
+					</div>
+
 					<div class="card-block">
 						<h3>Installations found</h3>
 						<p class="sub">Loadout picks whichever version a Minecraft release asks for.

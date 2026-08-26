@@ -25,7 +25,8 @@ const state = {
 	counts: {},
 	versions: null,      // Minecraft version catalogue, fetched once
 	latestRelease: null,
-	comboMarked: -1,
+	versionsPending: null,
+	systemMemoryMb: 0,
 	searchSeq: 0,
 	openLog: null,
 };
@@ -446,6 +447,7 @@ function switchTab(name) {
 	if (name === 'servers') renderServers();
 	if (name === 'logs') renderLogs();
 	if (name === 'versions') renderSnapshots();
+	if (name === 'settings') renderInstanceOptions();
 }
 
 function setContentMode(mode) {
@@ -1018,7 +1020,7 @@ function showSection(name) {
 	}
 
 	if (name === 'sources') renderSources();
-	if (name === 'java') renderJavas();
+	if (name === 'java') { renderJavas(); renderGlobalOptions(); }
 	if (name === 'accounts') renderAccounts();
 	if (name === 'about') renderAbout();
 }
@@ -1208,6 +1210,173 @@ function renderAppearance() {
 	}
 }
 
+/* -- launch options ------------------------------------------------------------------------------ */
+
+/**
+ * The memory, Java, window and hook settings, drawn once and used in two places.
+ *
+ * Global defaults and a per-instance override of the same shape, so the same renderer
+ * serves both -- with the override switches present only on the instance copy. Writing it
+ * twice is how the two would come to disagree about what a field means.
+ *
+ * @param mount where to draw
+ * @param options the values being edited
+ * @param defaults what an un-overridden group would use, or null when editing the defaults
+ * @param onSave called with the collected values
+ */
+function renderOptions(mount, options, defaults, onSave) {
+	clear(mount);
+	const perInstance = defaults !== null;
+	const fields = {};
+
+	const group = (key, title, build) => {
+		const box = el('div', 'opt-group');
+
+		const head = el('div', 'opt-head');
+		head.appendChild(el('span', 'opt-title', title));
+
+		const body = el('div', 'opt-fields');
+
+		if (perInstance) {
+			const row = el('div', 'switch-row');
+			const label = el('span', null, 'Override');
+			const toggle = el('button', 'switch');
+			toggle.type = 'button';
+
+			let on = Boolean(options['override' + key]);
+			const paint = () => {
+				toggle.classList.toggle('on', on);
+				body.classList.toggle('inherited', !on);
+				toggle.setAttribute('aria-pressed', String(on));
+			};
+
+			toggle.addEventListener('click', () => { on = !on; paint(); });
+			fields['override' + key] = () => on;
+
+			row.appendChild(label);
+			row.appendChild(toggle);
+			head.appendChild(row);
+			setTimeout(paint, 0);
+		}
+
+		box.appendChild(head);
+		build(body);
+		box.appendChild(body);
+		mount.appendChild(box);
+	};
+
+	const numberField = (parent, key, label, value, placeholder) => {
+		const wrap = el('label', 'opt-field');
+		wrap.appendChild(el('span', null, label));
+
+		const input = document.createElement('input');
+		input.type = 'number';
+		input.min = '0';
+		input.value = value === undefined || value === null ? '' : String(value);
+		input.placeholder = placeholder === undefined ? '' : String(placeholder);
+		wrap.appendChild(input);
+		parent.appendChild(wrap);
+
+		fields[key] = () => (input.value.trim() === '' ? null : Number(input.value));
+		return input;
+	};
+
+	const textField = (parent, key, label, value, placeholder, wide) => {
+		const wrap = el('label', 'opt-field' + (wide ? ' wide' : ''));
+		wrap.appendChild(el('span', null, label));
+
+		const input = document.createElement('input');
+		input.type = 'text';
+		input.value = value || '';
+		input.placeholder = placeholder || '';
+		wrap.appendChild(input);
+		parent.appendChild(wrap);
+
+		fields[key] = () => (input.value.trim() === '' ? null : input.value.trim());
+	};
+
+	const fallback = (key) => (defaults ? defaults[key] : undefined);
+
+	group('Memory', 'Memory', (body) => {
+		numberField(body, 'memoryMinMb', 'Minimum (MB)', options.memoryMinMb, fallback('memoryMinMb') ?? '');
+		const max = numberField(body, 'memoryMaxMb', 'Maximum (MB)', options.memoryMaxMb,
+			fallback('memoryMaxMb') ?? '');
+
+		const hint = el('div', 'memory-hint');
+		body.appendChild(hint);
+
+		const describe = () => {
+			const value = Number(max.value);
+			if (!value) {
+				hint.textContent = state.systemMemoryMb
+					? `This machine has about ${Math.round(state.systemMemoryMb / 1024)} GB.`
+					: '';
+				return;
+			}
+			// Leaving the whole machine to the JVM starves the operating system, and the
+			// symptom is the desktop stuttering rather than anything blamed on the launcher.
+			const share = state.systemMemoryMb ? value / state.systemMemoryMb : 0;
+			hint.textContent = share > 0.75
+				? `${(value / 1024).toFixed(1)} GB of about `
+					+ `${Math.round(state.systemMemoryMb / 1024)} GB — leave some for the system.`
+				: `${(value / 1024).toFixed(1)} GB`
+					+ (state.systemMemoryMb
+						? ` of about ${Math.round(state.systemMemoryMb / 1024)} GB` : '');
+		};
+
+		max.addEventListener('input', describe);
+		describe();
+	});
+
+	group('Java', 'Java', (body) => {
+		textField(body, 'javaPath', 'Java executable', options.javaPath,
+			fallback('javaPath') || 'Chosen automatically', true);
+		textField(body, 'jvmArgs', 'Extra JVM arguments', options.jvmArgs,
+			fallback('jvmArgs') || '', true);
+	});
+
+	group('Window', 'Game window', (body) => {
+		numberField(body, 'windowWidth', 'Width', options.windowWidth, fallback('windowWidth') ?? 854);
+		numberField(body, 'windowHeight', 'Height', options.windowHeight, fallback('windowHeight') ?? 480);
+	});
+
+	group('Commands', 'Hooks', (body) => {
+		textField(body, 'preLaunchCommand', 'Before launch', options.preLaunchCommand,
+			fallback('preLaunchCommand') || '', true);
+		textField(body, 'postExitCommand', 'After exit', options.postExitCommand,
+			fallback('postExitCommand') || '', true);
+	});
+
+	const save = el('button', 'btn primary spaced', 'Save');
+	save.addEventListener('click', async () => {
+		const collected = {};
+		for (const [key, read] of Object.entries(fields)) collected[key] = read();
+
+		save.disabled = true;
+		const done = await onSave(collected);
+		save.disabled = false;
+		if (done) toast('Saved');
+	});
+	mount.appendChild(save);
+}
+
+async function renderInstanceOptions() {
+	const data = await call(api.options.get(state.current.name), 'Could not load settings');
+	if (!data) return;
+
+	renderOptions($('instance-options'), data.options, data.defaults, async (values) =>
+		Boolean(await call(api.options.set(state.current.name, values), 'Could not save')));
+}
+
+async function renderGlobalOptions() {
+	const data = await call(api.options.defaults(), 'Could not load defaults');
+	if (!data) return;
+
+	state.systemMemoryMb = data.systemMemoryMb || 0;
+	renderOptions($('global-options'), data.defaults, null, async (values) =>
+		Boolean(await call(api.options.setDefaults(values), 'Could not save')));
+}
+
 /* -- jobs -------------------------------------------------------------------------------------- */
 
 function onJobEvent(event) {
@@ -1284,165 +1453,197 @@ function reportSuccess(job) {
 
 /* -- version combobox ---------------------------------------------------------------------------- */
 
+/**
+ * The Minecraft version catalogue, fetched once and shared by every picker.
+ *
+ * Nine hundred versions is too many for a select and a few hundred kilobytes is too much
+ * to fetch per keystroke, so it is loaded on first use and kept.
+ */
 async function loadVersions() {
-	if (state.versions) return;
+	if (state.versions) return state.versions;
+	if (state.versionsPending) return state.versionsPending;
 
-	const data = await call(api.minecraftVersions(), 'Could not load Minecraft versions');
-	if (!data) {
-		$('nd-version').placeholder = 'Type a version';
-		return;
-	}
-
-	state.versions = data.versions;
-	state.latestRelease = data.latestRelease;
-
-	const input = $('nd-version');
-	input.placeholder = 'Search versions';
-	if (!input.value && data.latestRelease) input.value = data.latestRelease;
-}
-
-function versionMatches() {
-	if (!state.versions) return [];
-
-	const typed = $('nd-version').value.trim().toLowerCase();
-	const includeAll = $('nd-snapshots').checked;
-	const eligible = state.versions.filter((v) => includeAll || v.type === 'release');
-
-	// Text that exactly names a version is a selection, not a search. Filtering on it would
-	// open the list showing only the row already chosen, which is useless.
-	const isSelection = eligible.some((v) => v.id.toLowerCase() === typed);
-	return (isSelection || !typed
-		? eligible
-		: eligible.filter((v) => v.id.toLowerCase().includes(typed))).slice(0, 120);
-}
-
-function renderVersionList() {
-	const list = $('nd-version-options');
-	const matches = versionMatches();
-	clear(list);
-	state.comboMarked = -1;
-
-	if (!state.versions) {
-		list.appendChild(el('div', 'combo-empty', 'Loading versions…'));
-		return;
-	}
-	if (matches.length === 0) {
-		list.appendChild(el('div', 'combo-empty', 'No version matches that.'));
-		return;
-	}
-
-	matches.forEach((version) => {
-		const option = el('div', 'combo-option');
-		option.setAttribute('role', 'option');
-		option.appendChild(el('span', 'id', version.id));
-
-		if (version.id === state.latestRelease) option.appendChild(el('span', 'pill ok', 'latest'));
-		else if (version.type !== 'release') {
-			option.appendChild(el('span', 'pill', version.type.replace('old_', '')));
-		}
-		if (version.releasedAt) {
-			option.appendChild(el('span', 'when', new Date(version.releasedAt).getFullYear()));
-		}
-
-		// mousedown, not click: the input blurs first on click and the blur handler closes
-		// the list before the click ever lands.
-		option.addEventListener('mousedown', (event) => {
-			event.preventDefault();
-			chooseVersion(version.id);
+	// Two pickers opening at once should make one request, not two.
+	state.versionsPending = call(api.minecraftVersions(), 'Could not load Minecraft versions')
+		.then((data) => {
+			state.versionsPending = null;
+			if (!data) return null;
+			state.versions = data.versions;
+			state.latestRelease = data.latestRelease;
+			return state.versions;
 		});
-		list.appendChild(option);
-	});
+
+	return state.versionsPending;
 }
 
-function openVersionList() {
-	renderVersionList();
-	$('nd-version-list').hidden = false;
-	$('nd-version').setAttribute('aria-expanded', 'true');
+/**
+ * Turns a markup block into a filtering version picker.
+ *
+ * Built as a factory rather than wired once, because the same control is wanted in two
+ * places -- creating an instance and moving an existing one -- and a second copy with
+ * hardcoded element ids is how the two drift apart.
+ *
+ * @param prefix the id prefix its elements share
+ */
+function makeVersionCombo(prefix) {
+	const input = $(`${prefix}-version`) || $(`${prefix}-target`);
+	const list = $(`${prefix}-version-list`);
+	const options = $(`${prefix}-version-options`);
+	const snapshots = $(`${prefix}-snapshots`);
+	const snapshotsRow = $(`${prefix}-snapshots-row`);
+	const caret = $(`${prefix}-caret`);
 
-	const chosen = $('nd-version').value.trim().toLowerCase();
-	const options = $$('#nd-version-list .combo-option');
-	const at = options.findIndex((o) => o.querySelector('.id').textContent.toLowerCase() === chosen);
+	let marked = -1;
 
-	if (at >= 0) {
-		state.comboMarked = at;
-		options[at].classList.add('marked');
-		// scrollTop rather than scrollIntoView, which scrolls every ancestor that can
-		// scroll and slides the dialog's own heading off the top.
-		const list = $('nd-version-list');
-		list.scrollTop = options[at].offsetTop - (list.clientHeight / 2) + (options[at].offsetHeight / 2);
-	}
-}
+	const matches = () => {
+		if (!state.versions) return [];
 
-function closeVersionList() {
-	$('nd-version-list').hidden = true;
-	$('nd-version').setAttribute('aria-expanded', 'false');
-	state.comboMarked = -1;
-}
+		const typed = input.value.trim().toLowerCase();
+		const eligible = state.versions.filter((v) => snapshots.checked || v.type === 'release');
 
-function chooseVersion(id) {
-	$('nd-version').value = id;
-	closeVersionList();
-}
+		// Text that exactly names a version is a selection, not a search. Filtering on it
+		// would open the list showing only the row already chosen, which is useless -- the
+		// reason to open it is to see the alternatives.
+		const isSelection = eligible.some((v) => v.id.toLowerCase() === typed);
+		return (isSelection || !typed
+			? eligible
+			: eligible.filter((v) => v.id.toLowerCase().includes(typed))).slice(0, 120);
+	};
 
-function markVersion(delta) {
-	const options = $$('#nd-version-list .combo-option');
-	if (options.length === 0) return;
+	const paint = () => {
+		const found = matches();
+		clear(options);
+		marked = -1;
 
-	const next = state.comboMarked + delta;
-	state.comboMarked = next < 0 ? options.length - 1 : (next >= options.length ? 0 : next);
-	options.forEach((o, i) => o.classList.toggle('marked', i === state.comboMarked));
+		if (!state.versions) {
+			options.appendChild(el('div', 'combo-empty', 'Loading versions…'));
+			return;
+		}
+		if (found.length === 0) {
+			options.appendChild(el('div', 'combo-empty', 'No version matches that.'));
+			return;
+		}
 
-	const list = $('nd-version-list');
-	const option = options[state.comboMarked];
-	if (option.offsetTop < list.scrollTop) {
-		list.scrollTop = option.offsetTop;
-	} else if (option.offsetTop + option.offsetHeight > list.scrollTop + list.clientHeight) {
-		list.scrollTop = option.offsetTop + option.offsetHeight - list.clientHeight;
-	}
-}
+		for (const version of found) {
+			const option = el('div', 'combo-option');
+			option.setAttribute('role', 'option');
+			option.appendChild(el('span', 'id', version.id));
 
-function wireVersionCombo() {
-	const input = $('nd-version');
+			if (version.id === state.latestRelease) option.appendChild(el('span', 'pill ok', 'latest'));
+			else if (version.type !== 'release') {
+				option.appendChild(el('span', 'pill', version.type.replace('old_', '')));
+			}
+			if (version.releasedAt) {
+				option.appendChild(el('span', 'when', new Date(version.releasedAt).getFullYear()));
+			}
 
-	input.addEventListener('focus', openVersionList);
-	input.addEventListener('input', openVersionList);
+			// mousedown, not click: the input blurs first on click and the blur handler
+			// closes the list before the click ever lands.
+			option.addEventListener('mousedown', (event) => {
+				event.preventDefault();
+				choose(version.id);
+			});
+			options.appendChild(option);
+		}
+	};
 
-	$('nd-snapshots-row').addEventListener('mousedown', (event) => {
+	const open = () => {
+		paint();
+		list.hidden = false;
+		input.setAttribute('aria-expanded', 'true');
+
+		// Opened on a chosen version: put it under the cursor rather than making anyone
+		// scroll to find where they already are.
+		const chosen = input.value.trim().toLowerCase();
+		const rows = Array.from(options.querySelectorAll('.combo-option'));
+		const at = rows.findIndex((o) => o.querySelector('.id').textContent.toLowerCase() === chosen);
+
+		if (at >= 0) {
+			marked = at;
+			rows[at].classList.add('marked');
+			// scrollTop rather than scrollIntoView, which scrolls every ancestor that can
+			// scroll and slides the dialog's own heading off the top.
+			list.scrollTop = rows[at].offsetTop - (list.clientHeight / 2) + (rows[at].offsetHeight / 2);
+		}
+	};
+
+	const close = () => {
+		list.hidden = true;
+		input.setAttribute('aria-expanded', 'false');
+		marked = -1;
+	};
+
+	const choose = (id) => {
+		input.value = id;
+		close();
+		if (combo.onChoose) combo.onChoose(id);
+	};
+
+	const move = (delta) => {
+		const rows = Array.from(options.querySelectorAll('.combo-option'));
+		if (rows.length === 0) return;
+
+		const next = marked + delta;
+		marked = next < 0 ? rows.length - 1 : (next >= rows.length ? 0 : next);
+		rows.forEach((o, i) => o.classList.toggle('marked', i === marked));
+
+		const row = rows[marked];
+		if (row.offsetTop < list.scrollTop) {
+			list.scrollTop = row.offsetTop;
+		} else if (row.offsetTop + row.offsetHeight > list.scrollTop + list.clientHeight) {
+			list.scrollTop = row.offsetTop + row.offsetHeight - list.clientHeight;
+		}
+	};
+
+	input.addEventListener('focus', () => { loadVersions().then(paint); open(); });
+	input.addEventListener('input', open);
+
+	snapshotsRow.addEventListener('mousedown', (event) => {
+		// The header lives inside the list, so a click on it would blur the input and the
+		// blur handler would close the list out from under the toggle.
 		event.preventDefault();
-		const box = $('nd-snapshots');
-		box.checked = !box.checked;
-		renderVersionList();
+		snapshots.checked = !snapshots.checked;
+		paint();
 	});
 
-	$('nd-caret').addEventListener('mousedown', (event) => {
+	caret.addEventListener('mousedown', (event) => {
 		event.preventDefault();
-		if ($('nd-version-list').hidden) { input.focus(); openVersionList(); } else closeVersionList();
+		if (list.hidden) { input.focus(); loadVersions().then(paint); open(); } else close();
 	});
 
 	input.addEventListener('keydown', (event) => {
-		const open = !$('nd-version-list').hidden;
+		const isOpen = !list.hidden;
 
 		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
 			event.preventDefault();
-			if (!open) openVersionList();
-			markVersion(event.key === 'ArrowDown' ? 1 : -1);
+			if (!isOpen) open();
+			move(event.key === 'ArrowDown' ? 1 : -1);
 			return;
 		}
-		if (event.key === 'Enter' && open && state.comboMarked >= 0) {
+		if (event.key === 'Enter' && isOpen && marked >= 0) {
 			event.preventDefault();
-			const marked = $$('#nd-version-list .combo-option')[state.comboMarked];
-			if (marked) chooseVersion(marked.querySelector('.id').textContent);
+			const row = options.querySelectorAll('.combo-option')[marked];
+			if (row) choose(row.querySelector('.id').textContent);
 			return;
 		}
-		if (event.key === 'Escape' && open) {
+		if (event.key === 'Escape' && isOpen) {
 			// Closes the list, not the dialog, which is what Escape would otherwise do.
 			event.preventDefault();
 			event.stopPropagation();
-			closeVersionList();
+			close();
 		}
 	});
 
-	input.addEventListener('blur', () => setTimeout(closeVersionList, 120));
+	input.addEventListener('blur', () => setTimeout(close, 120));
+
+	const combo = {
+		get value() { return input.value.trim(); },
+		set value(v) { input.value = v; },
+		reset(v) { input.value = v || ''; snapshots.checked = false; close(); },
+		close,
+		onChoose: null,
+	};
+	return combo;
 }
 
 /* -- wiring -------------------------------------------------------------------------------------- */
@@ -1500,9 +1701,20 @@ function mountSelects() {
 	], 'en', () => {});
 }
 
+let versionCombo = null;
+let migrateCombo = null;
+
 function wire() {
 	mountSelects();
-	wireVersionCombo();
+
+	versionCombo = makeVersionCombo('nd');
+	migrateCombo = makeVersionCombo('mig');
+	// Choosing a target invalidates any plan already on screen, which was computed for a
+	// different version and would otherwise sit there looking current.
+	migrateCombo.onChoose = () => {
+		clear($('mig-result'));
+		$('mig-apply').disabled = true;
+	};
 
 	for (const button of $$('.rail-btn[data-view]')) {
 		button.addEventListener('click', () => show(button.dataset.view));
@@ -1519,12 +1731,14 @@ function wire() {
 
 	const openNew = () => {
 		$('nd-name').value = '';
-		$('nd-version').value = state.latestRelease || '';
-		$('nd-snapshots').checked = false;
-		closeVersionList();
+		versionCombo.reset(state.latestRelease || '');
 		$('new-dialog').showModal();
 		$('nd-name').focus();
-		loadVersions();
+		// Fetched on first open rather than at startup: most sessions never create one.
+		loadVersions().then(() => {
+			$('nd-version').placeholder = 'Search versions';
+			if (!versionCombo.value && state.latestRelease) versionCombo.value = state.latestRelease;
+		});
 	};
 	$('rail-new').addEventListener('click', openNew);
 	$('home-new').addEventListener('click', openNew);
@@ -1562,14 +1776,14 @@ function wire() {
 	});
 
 	$('mig-check').addEventListener('click', async () => {
-		const target = $('mig-target').value.trim();
+		const target = migrateCombo.value;
 		if (!target) return toast('Enter a Minecraft version first', true);
 		$('mig-apply').disabled = true;
 		await call(api.migrate(state.current.name, target, false, false), 'Could not check');
 	});
 
 	$('mig-apply').addEventListener('click', async () => {
-		await call(api.migrate(state.current.name, $('mig-target').value.trim(), true, false),
+		await call(api.migrate(state.current.name, migrateCombo.value, true, false),
 			'Migration failed');
 	});
 

@@ -57,11 +57,27 @@ public final class Profile {
 	private Profile() {
 	}
 
+	private GameOptions options;
+
 	public Profile(String name, String minecraftVersion, String loader, List<Entry> mods) {
 		this.name = name;
 		this.minecraftVersion = minecraftVersion;
 		this.loader = loader;
 		this.mods = new ArrayList<>(mods);
+	}
+
+	/**
+	 * How this instance should be started, or null to use the global settings.
+	 *
+	 * <p>Nullable rather than always present so an untouched instance stores nothing and
+	 * keeps following the defaults, including defaults changed later.
+	 */
+	public GameOptions options() {
+		return this.options == null ? new GameOptions() : this.options;
+	}
+
+	public void setOptions(GameOptions replacement) {
+		this.options = replacement;
 	}
 
 	public String name() {
