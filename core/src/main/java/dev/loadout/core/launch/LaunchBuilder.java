@@ -116,6 +116,14 @@ public final class LaunchBuilder {
 		command.add(javaExecutable);
 		command.addAll(extraJvmArgs);
 
+		// How the companion mod knows which launcher started the game. Properties rather
+		// than a marker file: the launcher already writes this command line, and a file
+		// would be one more thing to keep in step with a folder somebody may have copied.
+		// Added after the user's own arguments so these cannot be overridden by accident.
+		command.add("-Dloadout.launcher=loadout");
+		command.add("-Dloadout.version=0.1.0");
+		command.add("-Dloadout.instance=" + gameDir.getFileName());
+
 		// The version's own JVM arguments carry things like the natives path and, on
 		// macOS, -XstartOnFirstThread. Skipping them produces failures that look
 		// unrelated to the launcher.
