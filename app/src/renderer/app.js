@@ -29,6 +29,7 @@ const state = {
 	systemMemoryMb: 0,
 	searchSeq: 0,
 	openLog: null,
+	modReturn: 'browse',
 };
 
 /* -- helpers -------------------------------------------------------------------------- */
@@ -381,6 +382,326 @@ async function renderAccountChip() {
 		menu.hidden = !menu.hidden;
 		chip.setAttribute('aria-expanded', String(!menu.hidden));
 	};
+}
+
+/* -- mod page --------------------------------------------------------------------------------- */
+
+/**
+ * Renders a subset of Markdown into real nodes.
+ *
+ * Built as DOM rather than assigned as innerHTML, which is the whole point: these bodies
+ * are written by strangers and published by a registry that does not promise to have
+ * sanitised anything. A parser that only ever calls createElement cannot be made to
+ * produce a script tag no matter what it is fed.
+ *
+ * A subset on purpose. Headings, emphasis, code, lists, links, images, quotes and rules
+ * cover what mod descriptions actually use; tables and raw HTML are shown as text rather
+ * than half-supported.
+ */
+function renderMarkdown(text, into) {
+	clear(into);
+	const lines = text.replace(/\r/g, '').split('\n');
+
+	let index = 0;
+	let list = null;
+
+	const closeList = () => { list = null; };
+
+	while (index < lines.length) {
+		const line = lines[index];
+
+		// Fenced code, taken verbatim to its closing fence.
+		if (line.trimStart().startsWith('```')) {
+			closeList();
+			const code = [];
+			index++;
+			while (index < lines.length && !lines[index].trimStart().startsWith('```')) {
+				code.push(lines[index++]);
+			}
+			index++;
+			const block = el('pre', 'code-block');
+			block.appendChild(el('code', null, code.join('\n')));
+			into.appendChild(block);
+			continue;
+		}
+
+		if (!line.trim()) { closeList(); index++; continue; }
+
+		if (/^\s*(---+|\*\*\*+|___+)\s*$/.test(line)) {
+			closeList();
+			into.appendChild(el('hr'));
+			index++;
+			continue;
+		}
+
+		const heading = line.match(/^(#{1,6})\s+(.*)$/);
+		if (heading) {
+			closeList();
+			const node = el('h' + Math.min(heading[1].length + 1, 6));
+			inline(heading[2], node);
+			into.appendChild(node);
+			index++;
+			continue;
+		}
+
+		const quote = line.match(/^>\s?(.*)$/);
+		if (quote) {
+			closeList();
+			const node = el('blockquote');
+			inline(quote[1], node);
+			into.appendChild(node);
+			index++;
+			continue;
+		}
+
+		const bullet = line.match(/^\s*[-*+]\s+(.*)$/);
+		const numbered = line.match(/^\s*\d+[.)]\s+(.*)$/);
+		if (bullet || numbered) {
+			const wanted = bullet ? 'ul' : 'ol';
+			if (!list || list.tagName.toLowerCase() !== wanted) {
+				list = el(wanted);
+				into.appendChild(list);
+			}
+			const item = el('li');
+			inline((bullet || numbered)[1], item);
+			list.appendChild(item);
+			index++;
+			continue;
+		}
+
+		closeList();
+		const paragraph = el('p');
+		inline(line, paragraph);
+		into.appendChild(paragraph);
+		index++;
+	}
+}
+
+/**
+ * Inline markup within one line.
+ *
+ * Scanned with a single alternation and rebuilt as nodes. Text between matches is added
+ * with createTextNode, so anything that looks like markup but is not simply stays text.
+ */
+function inline(text, into) {
+	const pattern = /!\[([^\]]*)\]\(([^)\s]+)[^)]*\)|\[([^\]]*)\]\(([^)\s]+)[^)]*\)|`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_/g;
+
+	let at = 0;
+	let match;
+
+	while ((match = pattern.exec(text)) !== null) {
+		if (match.index > at) {
+			into.appendChild(document.createTextNode(text.slice(at, match.index)));
+		}
+
+		if (match[2] !== undefined) {
+			into.appendChild(safeImage(match[2], match[1]));
+		} else if (match[4] !== undefined) {
+			into.appendChild(safeLink(match[4], match[3] || match[4]));
+		} else if (match[5] !== undefined) {
+			// Code spans are literal by definition, so this is the one case not recursed
+			// into -- markup inside backticks is meant to be shown, not applied.
+			into.appendChild(el('code', null, match[5]));
+		} else if (match[6] !== undefined || match[7] !== undefined) {
+			// Recursed rather than taken as text: "**_bold italic_**" is common, and
+			// flattening it prints the inner underscores instead of applying them.
+			const strong = el('strong');
+			inline(match[6] ?? match[7], strong);
+			into.appendChild(strong);
+		} else {
+			const emphasis = el('em');
+			inline(match[8] ?? match[9], emphasis);
+			into.appendChild(emphasis);
+		}
+		at = pattern.lastIndex;
+	}
+
+	if (at < text.length) {
+		into.appendChild(document.createTextNode(text.slice(at)));
+	}
+}
+
+/** A link that opens in the real browser, and only if it is one we would open. */
+function safeLink(href, label) {
+	if (!/^https:\/\//i.test(href)) {
+		// Anything else -- javascript:, data:, a relative path into the registry -- is
+		// shown as text. A link that cannot be trusted is not made to look like one.
+		return document.createTextNode(label);
+	}
+	const link = el('a', 'ext-link', label);
+	link.href = '#';
+	link.addEventListener('click', (event) => {
+		event.preventDefault();
+		api.openExternal(href);
+	});
+	return link;
+}
+
+function safeImage(src, alt) {
+	if (!/^https:\/\//i.test(src)) {
+		return document.createTextNode(alt || '');
+	}
+	const image = document.createElement('img');
+	image.className = 'prose-img';
+	image.loading = 'lazy';
+	image.alt = alt || '';
+	image.src = src;
+	image.addEventListener('error', () => image.remove());
+	return image;
+}
+
+/**
+ * Renders CurseForge's HTML descriptions.
+ *
+ * Parsed into an inert document and then rebuilt one allowed tag at a time. Walking a
+ * parsed tree is safer than pattern-matching the string, and rebuilding rather than
+ * adopting means no attribute survives that was not explicitly copied -- so no onclick,
+ * no style, no srcset pointing anywhere.
+ */
+function renderHtml(html, into) {
+	clear(into);
+
+	const ALLOWED = new Set(['P', 'BR', 'STRONG', 'B', 'EM', 'I', 'U', 'CODE', 'PRE',
+		'UL', 'OL', 'LI', 'BLOCKQUOTE', 'HR', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6',
+		'A', 'IMG', 'SPAN', 'DIV', 'CENTER', 'FIGURE', 'FIGCAPTION']);
+
+	const parsed = new DOMParser().parseFromString(html, 'text/html');
+
+	const rebuild = (source, target, depth) => {
+		if (depth > 20) return;
+
+		for (const node of source.childNodes) {
+			if (node.nodeType === Node.TEXT_NODE) {
+				target.appendChild(document.createTextNode(node.textContent));
+				continue;
+			}
+			if (node.nodeType !== Node.ELEMENT_NODE) continue;
+
+			const tag = node.tagName.toUpperCase();
+			if (!ALLOWED.has(tag)) {
+				// Not dropped entirely: the text inside an unknown wrapper is usually the
+				// content, and losing it would leave a page full of holes.
+				rebuild(node, target, depth + 1);
+				continue;
+			}
+
+			if (tag === 'A') {
+				target.appendChild(safeLink(node.getAttribute('href') || '', node.textContent));
+				continue;
+			}
+			if (tag === 'IMG') {
+				target.appendChild(safeImage(node.getAttribute('src') || '',
+					node.getAttribute('alt') || ''));
+				continue;
+			}
+
+			// Heading levels are demoted so a description cannot outrank the page's own.
+			const name = /^H[1-6]$/.test(tag)
+				? 'h' + Math.min(Number(tag[1]) + 1, 6)
+				: tag.toLowerCase();
+
+			const fresh = document.createElement(name === 'center' ? 'div' : name);
+			rebuild(node, fresh, depth + 1);
+			target.appendChild(fresh);
+		}
+	};
+
+	rebuild(parsed.body, into, 0);
+}
+
+/**
+ * Opens a mod's page inside the launcher.
+ *
+ * @param origin where Back should return to
+ */
+async function openModPage(mod, profileName, origin) {
+	state.modReturn = origin || state.view;
+	show('mod');
+
+	$('mod-title').textContent = mod.title;
+	$('mod-summary').textContent = mod.description || '';
+	clear($('mod-body'));
+	clear($('mod-gallery'));
+	clear($('mod-links'));
+	clear($('mod-meta'));
+
+	const art = $('mod-art');
+	clear(art);
+	art.appendChild(artFor(mod.iconUrl, mod.title, 'art xl'));
+
+	$('mod-body').appendChild(el('p', 'sub', 'Loading…'));
+
+	const details = await call(api.modDetails(mod.source, mod.id), 'Could not load the page');
+	if (!details || state.view !== 'mod') return;
+
+	$('mod-title').textContent = details.title;
+	$('mod-summary').textContent = details.summary || '';
+
+	const meta = $('mod-meta');
+	meta.appendChild(el('span', `pill ${details.source}`, details.source));
+	meta.appendChild(el('span', 'pill', formatDownloads(details.downloads) + ' downloads'));
+	if (details.followers) meta.appendChild(el('span', 'pill', details.followers + ' followers'));
+	if (details.licence) meta.appendChild(el('span', 'pill', details.licence));
+	if (details.updatedAt) {
+		meta.appendChild(el('span', 'pill', 'updated ' + when(Date.parse(details.updatedAt))));
+	}
+	for (const category of (details.categories || []).slice(0, 6)) {
+		meta.appendChild(el('span', 'pill', category));
+	}
+
+	const actions = $('mod-actions');
+	clear(actions);
+	if (profileName) {
+		const install = el('button', 'btn primary lg', 'Install');
+		install.addEventListener('click', async () => {
+			install.disabled = true;
+			install.textContent = 'Installing…';
+			const started = await call(
+				api.mods.install(profileName, mod.source, mod.id, mod.kind || 'mod'),
+				'Install failed');
+			if (!started) { install.disabled = false; install.textContent = 'Install'; }
+		});
+		actions.appendChild(install);
+	}
+	const openOut = el('button', 'btn quiet', 'Open in browser');
+	openOut.addEventListener('click', () => api.openExternal(mod.webUrl));
+	actions.appendChild(openOut);
+
+	const gallery = $('mod-gallery');
+	for (const image of (details.gallery || []).slice(0, 12)) {
+		const figure = el('button', 'gallery-item');
+		const picture = document.createElement('img');
+		picture.loading = 'lazy';
+		picture.alt = image.title || '';
+		picture.src = image.url;
+		picture.addEventListener('error', () => figure.remove());
+		figure.appendChild(picture);
+		figure.addEventListener('click', () => api.openExternal(image.url));
+		gallery.appendChild(figure);
+	}
+
+	const links = $('mod-links');
+	for (const link of details.links || []) {
+		const button = el('button', 'btn quiet sm', link.label);
+		button.addEventListener('click', () => api.openExternal(link.url));
+		links.appendChild(button);
+	}
+
+	const body = $('mod-body');
+	if (!details.body) {
+		clear(body);
+		body.appendChild(el('p', 'sub', 'This mod has no long description.'));
+	} else if (details.bodyFormat === 'html') {
+		renderHtml(details.body, body);
+	} else {
+		renderMarkdown(details.body, body);
+	}
+}
+
+function formatDownloads(n) {
+	if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+	if (n >= 1_000) return Math.round(n / 1_000) + 'k';
+	return String(n);
 }
 
 /* -- routing -------------------------------------------------------------------------- */
@@ -888,11 +1209,9 @@ function modCard(mod, alreadyInstalled, profileName) {
 	foot.appendChild(meta);
 
 	const actions = el('div', 'card-actions');
-	if (mod.webUrl) {
-		const page = el('button', 'btn quiet sm', 'Page');
-		page.addEventListener('click', () => api.openExternal(mod.webUrl));
-		actions.appendChild(page);
-	}
+	const page = el('button', 'btn quiet sm', 'Page');
+	page.addEventListener('click', () => openModPage(mod, profileName, state.view));
+	actions.appendChild(page);
 
 	// A split control: the button installs the newest build, the chevron opens the rest.
 	// Choosing a version every time would be tedious; never being able to is the real gap,
@@ -1718,9 +2037,20 @@ function renderOptions(mount, options, defaults, onSave) {
 	group('Window', 'Game window', (body) => {
 		numberField(body, 'windowWidth', 'Width', options.windowWidth, fallback('windowWidth') ?? 854);
 		numberField(body, 'windowHeight', 'Height', options.windowHeight, fallback('windowHeight') ?? 480);
+
+		const wrap = el('label', 'checkbox');
+		const box = document.createElement('input');
+		box.type = 'checkbox';
+		box.checked = Boolean(options.fullscreen);
+		wrap.appendChild(box);
+		wrap.appendChild(el('span', null, 'Start fullscreen'));
+		body.appendChild(wrap);
+		fields.fullscreen = () => box.checked;
 	});
 
 	group('Commands', 'Hooks', (body) => {
+		// Run around the game, the same three Prism offers. Useful for mounting a drive,
+		// stopping a wallpaper engine, or copying a world out afterwards.
 		textField(body, 'preLaunchCommand', 'Before launch', options.preLaunchCommand,
 			fallback('preLaunchCommand') || '', true);
 		textField(body, 'postExitCommand', 'After exit', options.postExitCommand,
@@ -2242,6 +2572,7 @@ function wire() {
 	});
 
 	$('vd-close').addEventListener('click', () => $('versions-dialog').close());
+	$('mod-back').addEventListener('click', () => show(state.modReturn || 'browse'));
 	$('sd-cancel').addEventListener('click', () => $('signin-dialog').close());
 	$('sources-recheck').addEventListener('click', renderSources);
 

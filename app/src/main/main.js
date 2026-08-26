@@ -151,6 +151,9 @@ function registerHandlers() {
 		api.request('POST', `/profiles/${encodeURIComponent(name)}/mods`,
 			{ source, id, versionId, type }));
 
+	handle('mod:details', (source, id) => api.get('/mod?'
+		+ new URLSearchParams({ source, id }).toString()));
+
 	handle('versions', (source, id, profile) => api.get('/versions?'
 		+ new URLSearchParams({ source, id, profile }).toString()));
 

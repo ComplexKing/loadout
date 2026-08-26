@@ -1076,6 +1076,71 @@ final class Routes {
 		return result;
 	}
 
+	/**
+	 * The full page for one mod.
+	 *
+	 * <p>Served so the description can be read without leaving the launcher. Leaving to
+	 * read what a mod does and coming back to install it is the most interrupted thing in
+	 * any launcher that sends people to a browser for it.
+	 */
+	JsonObject modDetails(ApiServer.Query query) throws IOException {
+		SourceId sourceId = SourceId.fromKey(query.require("source"));
+		if (sourceId == null) {
+			throw new ApiException(400, "Unknown source: " + query.require("source"));
+		}
+
+		ModSource source = this.home.sources().get(sourceId);
+		if (source == null || !source.isAvailable()) {
+			throw new ApiException(400, sourceId.displayName() + " is not available");
+		}
+
+		dev.loadout.core.source.RemoteDetails details;
+		try {
+			details = source.details(query.require("id"))
+					.orElseThrow(() -> ApiException.notFound("No such mod"));
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new ApiException(503, "Interrupted while reading the mod page");
+		}
+
+		JsonObject json = Json.object();
+		json.addProperty("source", details.source().key());
+		json.addProperty("id", details.id());
+		json.addProperty("title", details.title());
+		json.addProperty("downloads", details.downloads());
+		json.addProperty("bodyFormat", details.bodyFormat());
+
+		for (var pair : new String[][] {
+				{"slug", details.slug()}, {"summary", details.summary()},
+				{"author", details.author()}, {"iconUrl", details.iconUrl()},
+				{"body", details.body()}, {"licence", details.licence()},
+				{"updatedAt", details.updatedAt()}}) {
+			if (pair[1] != null) {
+				json.addProperty(pair[0], pair[1]);
+			}
+		}
+		if (details.followers() > 0) {
+			json.addProperty("followers", details.followers());
+		}
+
+		json.add("categories", Json.stringsOf(details.categories()));
+		json.add("gallery", Json.arrayOf(details.gallery(), image -> {
+			JsonObject entry = Json.object();
+			entry.addProperty("url", image.url());
+			if (image.title() != null) {
+				entry.addProperty("title", image.title());
+			}
+			return entry;
+		}));
+		json.add("links", Json.arrayOf(details.links(), link -> {
+			JsonObject entry = Json.object();
+			entry.addProperty("label", link.label());
+			entry.addProperty("url", link.url());
+			return entry;
+		}));
+		return json;
+	}
+
 	// -- search ----------------------------------------------------------------------
 
 	/**

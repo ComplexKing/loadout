@@ -1816,3 +1816,129 @@ img.art { color: transparent; }
 }
 
 .win-btn { position: relative; }
+
+/* -- mod page ------------------------------------------------------------------------------ */
+
+.back-btn { align-self: flex-start; margin-bottom: 14px; }
+.back-arrow { transform: rotate(90deg); }
+
+.mod-head {
+	display: grid;
+	grid-template-columns: 84px minmax(0, 1fr) auto;
+	gap: 18px;
+	align-items: start;
+	padding-bottom: 18px;
+	border-bottom: 1px solid var(--line);
+	margin-bottom: 18px;
+}
+
+.art.xl { width: 84px; height: 84px; border-radius: 18px; font-size: 32px; }
+
+.mod-head-text { min-width: 0; }
+.mod-head-text h1 { margin-bottom: 5px; }
+.mod-head-text .sub { max-width: 70ch; }
+.mod-head-actions { display: flex; flex-direction: column; gap: 8px; flex: none; }
+
+.gallery {
+	display: grid;
+	grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+	gap: 10px;
+	margin-bottom: 18px;
+}
+
+.gallery:empty { display: none; }
+
+.gallery-item {
+	border: 1px solid var(--line);
+	border-radius: var(--r);
+	overflow: hidden;
+	background: var(--surface);
+	padding: 0;
+	cursor: pointer;
+	transition: border-color 150ms var(--ease), transform 150ms var(--ease);
+}
+
+.gallery-item:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.gallery-item img {
+	display: block;
+	width: 100%;
+	aspect-ratio: 16 / 9;
+	object-fit: cover;
+	background: var(--bg);
+}
+
+.mod-links { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+.mod-links:empty { display: none; }
+
+/* -- prose ---------------------------------------------------------------------------------- */
+
+/*
+ * A mod description, written by whoever wrote the mod. The constraints here are about
+ * making someone else's document sit inside this one: bounded width so long paragraphs
+ * stay readable, headings demoted so they cannot outrank the page's own, and images
+ * capped so a screenshot pasted at full size does not run the layout.
+ */
+.prose {
+	max-width: 78ch;
+	color: var(--text-2);
+	font-size: 14px;
+	line-height: 1.65;
+	user-select: text;
+	padding-bottom: 40px;
+}
+
+.prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
+	color: var(--text);
+	margin: 24px 0 8px;
+	line-height: 1.3;
+}
+
+.prose h2 { font-size: 18px; }
+.prose h3 { font-size: 15.5px; }
+.prose h4, .prose h5, .prose h6 { font-size: 14px; }
+
+.prose p { margin: 10px 0; }
+.prose ul, .prose ol { margin: 10px 0 10px 22px; }
+.prose li { margin: 4px 0; }
+.prose strong { color: var(--text); font-weight: 650; }
+.prose hr { border: none; border-top: 1px solid var(--line); margin: 22px 0; }
+
+.prose blockquote {
+	border-left: 3px solid var(--line-2);
+	padding: 2px 0 2px 14px;
+	margin: 12px 0;
+	color: var(--text-3);
+}
+
+.prose code {
+	background: var(--surface-2);
+	border: 1px solid var(--line);
+	border-radius: 5px;
+	padding: 1px 5px;
+	font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+	font-size: 0.9em;
+	color: var(--text);
+}
+
+.prose .code-block {
+	background: var(--bg);
+	border: 1px solid var(--line);
+	border-radius: var(--r);
+	padding: 13px 15px;
+	overflow-x: auto;
+	margin: 12px 0;
+}
+
+.prose .code-block code { background: none; border: none; padding: 0; }
+
+.prose-img {
+	max-width: 100%;
+	height: auto;
+	border-radius: var(--r-sm);
+	margin: 8px 0;
+	display: block;
+}
+
+.ext-link { color: var(--accent-2); text-decoration: none; cursor: pointer; }
+.ext-link:hover { text-decoration: underline; }

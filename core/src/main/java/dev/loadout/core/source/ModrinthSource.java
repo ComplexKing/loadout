@@ -231,6 +231,70 @@ public final class ModrinthSource implements ModSource {
 	}
 
 	@Override
+	public java.util.Optional<RemoteDetails> details(String modId)
+			throws IOException, InterruptedException {
+		JsonObject project;
+		try {
+			project = this.http.getObject(API + "/project/" + Http.encode(modId));
+		} catch (Http.NotFound e) {
+			return java.util.Optional.empty();
+		}
+
+		List<RemoteDetails.GalleryImage> gallery = new ArrayList<>();
+		JsonArray images = project.getAsJsonArray("gallery");
+		if (images != null) {
+			for (JsonElement element : images) {
+				JsonObject image = element.getAsJsonObject();
+				String url = Http.string(image, "url");
+				if (url != null) {
+					gallery.add(new RemoteDetails.GalleryImage(url,
+							Http.string(image, "title"), Http.string(image, "description")));
+				}
+			}
+		}
+
+		List<RemoteDetails.Link> links = new ArrayList<>();
+		addLink(links, "Source", Http.string(project, "source_url"));
+		addLink(links, "Issues", Http.string(project, "issues_url"));
+		addLink(links, "Wiki", Http.string(project, "wiki_url"));
+		addLink(links, "Discord", Http.string(project, "discord_url"));
+
+		List<String> categories = new ArrayList<>();
+		JsonArray tags = project.getAsJsonArray("categories");
+		if (tags != null) {
+			for (JsonElement tag : tags) {
+				categories.add(tag.getAsString());
+			}
+		}
+
+		JsonObject licence = project.getAsJsonObject("license");
+
+		return java.util.Optional.of(new RemoteDetails(
+				SourceId.MODRINTH,
+				Http.string(project, "id"),
+				Http.string(project, "slug"),
+				Http.string(project, "title"),
+				Http.string(project, "description"),
+				null,   // Modrinth returns team members from a separate endpoint
+				Http.number(project, "downloads"),
+				Http.number(project, "followers"),
+				Http.string(project, "icon_url"),
+				Http.string(project, "body"),
+				"markdown",
+				licence == null ? null : Http.string(licence, "name"),
+				Http.string(project, "updated"),
+				List.copyOf(categories),
+				List.copyOf(gallery),
+				List.copyOf(links)));
+	}
+
+	private static void addLink(List<RemoteDetails.Link> links, String label, String url) {
+		if (url != null && !url.isBlank()) {
+			links.add(new RemoteDetails.Link(label, url));
+		}
+	}
+
+	@Override
 	public String modTitle(String modId) throws IOException, InterruptedException {
 		try {
 			String title = Http.string(this.http.getObject(API + "/project/" + Http.encode(modId)), "title");

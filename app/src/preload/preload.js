@@ -61,6 +61,7 @@ contextBridge.exposeInMainWorld('loadout', {
 	launch: (profile, username) => invoke('launch', profile, username),
 	search: (query) => invoke('search', query),
 	versions: (source, id, profile) => invoke('versions', source, id, profile),
+	modDetails: (source, id) => invoke('mod:details', source, id),
 	accounts: {
 		list: () => invoke('accounts:list'),
 		beginSignIn: () => invoke('accounts:signin'),

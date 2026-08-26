@@ -361,6 +361,91 @@ public final class CurseForgeSource implements ModSource {
 	}
 
 	@Override
+	public java.util.Optional<RemoteDetails> details(String modId)
+			throws IOException, InterruptedException {
+		if (!isAvailable()) {
+			return java.util.Optional.empty();
+		}
+
+		JsonObject mod;
+		try {
+			mod = this.http.getObject(API + "/mods/" + Http.encode(modId)).getAsJsonObject("data");
+		} catch (Http.NotFound e) {
+			return java.util.Optional.empty();
+		}
+		if (mod == null) {
+			return java.util.Optional.empty();
+		}
+
+		// The long description lives behind its own endpoint and comes back as HTML, which
+		// is why the format travels with the body rather than being assumed.
+		String body = null;
+		try {
+			JsonObject described = this.http.getObject(
+					API + "/mods/" + Http.encode(modId) + "/description");
+			body = Http.string(described, "data");
+		} catch (IOException e) {
+			// A missing description is not worth failing the whole page for.
+		}
+
+		List<RemoteDetails.GalleryImage> gallery = new ArrayList<>();
+		JsonArray screenshots = mod.getAsJsonArray("screenshots");
+		if (screenshots != null) {
+			for (JsonElement element : screenshots) {
+				JsonObject shot = element.getAsJsonObject();
+				String url = Http.string(shot, "url");
+				if (url != null) {
+					gallery.add(new RemoteDetails.GalleryImage(url,
+							Http.string(shot, "title"), Http.string(shot, "description")));
+				}
+			}
+		}
+
+		List<RemoteDetails.Link> links = new ArrayList<>();
+		JsonObject urls = mod.getAsJsonObject("links");
+		if (urls != null) {
+			addLink(links, "Source", Http.string(urls, "sourceUrl"));
+			addLink(links, "Issues", Http.string(urls, "issuesUrl"));
+			addLink(links, "Wiki", Http.string(urls, "wikiUrl"));
+		}
+
+		List<String> categories = new ArrayList<>();
+		JsonArray tags = mod.getAsJsonArray("categories");
+		if (tags != null) {
+			for (JsonElement tag : tags) {
+				String name = Http.string(tag.getAsJsonObject(), "name");
+				if (name != null) {
+					categories.add(name);
+				}
+			}
+		}
+
+		return java.util.Optional.of(new RemoteDetails(
+				SourceId.CURSEFORGE,
+				String.valueOf(Http.number(mod, "id")),
+				Http.string(mod, "slug"),
+				Http.string(mod, "name"),
+				Http.string(mod, "summary"),
+				firstAuthor(mod),
+				Http.number(mod, "downloadCount"),
+				0L,
+				logoUrl(mod),
+				body,
+				"html",
+				null,
+				Http.string(mod, "dateModified"),
+				List.copyOf(categories),
+				List.copyOf(gallery),
+				List.copyOf(links)));
+	}
+
+	private static void addLink(List<RemoteDetails.Link> links, String label, String url) {
+		if (url != null && !url.isBlank()) {
+			links.add(new RemoteDetails.Link(label, url));
+		}
+	}
+
+	@Override
 	public String modTitle(String modId) throws IOException, InterruptedException {
 		if (!isAvailable()) {
 			return modId;

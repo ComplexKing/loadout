@@ -123,6 +123,16 @@ public interface ModSource {
 		return java.util.Map.of();
 	}
 
+	/**
+	 * The full description of one mod.
+	 *
+	 * <p>Empty by default so a source that has no such concept need not pretend to.
+	 */
+	default java.util.Optional<RemoteDetails> details(String modId)
+			throws IOException, InterruptedException {
+		return java.util.Optional.empty();
+	}
+
 	/** A mod's display name, for reporting what a dependency actually is. */
 	String modTitle(String modId) throws IOException, InterruptedException;
 
