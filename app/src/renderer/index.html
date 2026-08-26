@@ -83,6 +83,16 @@
 
 <header class="titlebar">
 	<div class="titlebar-drag"><span class="wordmark">Loadout</span></div>
+
+	<!-- Outside the drag region, or it could not be clicked. -->
+	<div class="titlebar-account">
+		<button id="account-chip" class="account-chip" aria-haspopup="true" aria-expanded="false">
+			<span id="chip-face" class="chip-face"></span>
+			<span id="chip-name" class="chip-name">Not signed in</span>
+			<svg class="ico sm"><use href="#i-chevron"/></svg>
+		</button>
+		<div id="account-menu" class="account-menu" hidden></div>
+	</div>
 </header>
 
 <div class="shell">
@@ -414,6 +424,12 @@
 				<div class="panel" data-section="appearance" hidden>
 					<h2>Appearance</h2>
 					<div class="card-block">
+						<h3>Theme</h3>
+						<p class="sub">Changes every surface, not only the highlight.</p>
+						<div class="theme-row" id="themes"></div>
+					</div>
+
+					<div class="card-block">
 						<h3>Accent colour</h3>
 						<p class="sub">Used for the primary action, the selected instance and progress.</p>
 						<div class="swatches" id="accents"></div>
@@ -500,6 +516,19 @@
 		<div class="dialog-actions">
 			<button value="cancel" class="btn quiet" formnovalidate>Cancel</button>
 			<button value="create" class="btn primary">Create</button>
+		</div>
+	</form>
+</dialog>
+
+<dialog id="variant-dialog" class="dialog">
+	<form method="dialog">
+		<h2 id="variant-title">Arm width</h2>
+		<p class="sub">Slim arms are three pixels wide, classic four. The texture does not
+			say which it was drawn for, so it has to be chosen.</p>
+		<div class="dialog-actions">
+			<button value="cancel" class="btn quiet" formnovalidate>Cancel</button>
+			<button value="slim" class="btn">Slim</button>
+			<button value="classic" class="btn primary">Classic</button>
 		</div>
 	</form>
 </dialog>

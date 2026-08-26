@@ -68,6 +68,9 @@ contextBridge.exposeInMainWorld('loadout', {
 			invoke('accounts:complete', deviceCode, intervalSeconds),
 		setPrimary: (uuid) => invoke('accounts:primary', uuid),
 		remove: (uuid) => invoke('accounts:remove', uuid),
+		skin: (uuid) => invoke('accounts:skin', uuid),
+		setSkin: (uuid, path, variant) => invoke('accounts:setSkin', uuid, path, variant),
+		chooseSkinFile: () => invoke('accounts:chooseSkin'),
 	},
 
 	java: () => invoke('java:list'),

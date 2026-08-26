@@ -259,6 +259,130 @@ function mountSelect(placeholderId, options, value, onChange) {
 	return select;
 }
 
+/* -- skins ------------------------------------------------------------------------------------ */
+
+/**
+ * Draws the face out of a skin texture.
+ *
+ * Done here rather than by pointing an image tag at a skin-rendering service, because
+ * every such service learns the UUID of whoever is shown. The face is at a fixed place in
+ * the texture -- 8,8 for the head and 40,8 for the hat layer over it -- so this is a
+ * couple of draw calls rather than a dependency.
+ *
+ * @param pngBase64 the texture
+ * @param size how large to draw it, in CSS pixels
+ */
+function skinFace(pngBase64, size) {
+	const canvas = document.createElement('canvas');
+	const scale = window.devicePixelRatio || 1;
+	canvas.width = size * scale;
+	canvas.height = size * scale;
+	canvas.style.width = size + 'px';
+	canvas.style.height = size + 'px';
+
+	const context = canvas.getContext('2d');
+	// Nearest neighbour: a skin is 64 pixels across and smoothing turns it to mush.
+	context.imageSmoothingEnabled = false;
+
+	const image = new Image();
+	image.onload = () => {
+		context.drawImage(image, 8, 8, 8, 8, 0, 0, canvas.width, canvas.height);
+		// The hat layer is transparent where it is unused, so drawing it over is safe even
+		// for skins that have none.
+		context.drawImage(image, 40, 8, 8, 8, 0, 0, canvas.width, canvas.height);
+	};
+	image.src = 'data:image/png;base64,' + pngBase64;
+	return canvas;
+}
+
+/** Skins already fetched this session, so switching screens does not refetch them. */
+const skinCache = new Map();
+
+async function faceFor(uuid, username, size) {
+	if (skinCache.has(uuid)) {
+		const png = skinCache.get(uuid);
+		return png ? skinFace(png, size) : avatarNode(username, 'art');
+	}
+
+	const data = await call(api.accounts.skin(uuid));
+	const png = data && data.png ? data.png : null;
+	skinCache.set(uuid, png);
+
+	// No skin, or the lookup failed: the lettered tile is a fine stand-in and does not
+	// need the network.
+	return png ? skinFace(png, size) : avatarNode(username, 'art');
+}
+
+/* -- account chip ------------------------------------------------------------------------------ */
+
+/**
+ * The signed-in account, visible from every screen.
+ *
+ * Worth the titlebar space because it answers "who am I about to play as" without
+ * navigating anywhere -- which is the question that matters most on a launcher holding
+ * more than one account.
+ */
+async function renderAccountChip() {
+	const data = await call(api.accounts.list());
+	const chip = $('account-chip');
+	const face = $('chip-face');
+	const menu = $('account-menu');
+
+	clear(face);
+	clear(menu);
+	menu.hidden = true;
+	chip.setAttribute('aria-expanded', 'false');
+
+	if (!data || data.accounts.length === 0) {
+		$('chip-name').textContent = 'Not signed in';
+		chip.classList.add('empty');
+		chip.onclick = () => { show('settings'); showSection('accounts'); };
+		return;
+	}
+
+	chip.classList.remove('empty');
+	const current = data.accounts.find((a) => a.primary) || data.accounts[0];
+	$('chip-name').textContent = current.username;
+	face.appendChild(await faceFor(current.uuid, current.username, 22));
+
+	for (const account of data.accounts) {
+		const row = el('button', 'account-option');
+		if (account.uuid === current.uuid) row.classList.add('chosen');
+
+		const avatar = el('span', 'chip-face');
+		row.appendChild(avatar);
+		faceFor(account.uuid, account.username, 22).then((node) => avatar.appendChild(node));
+
+		row.appendChild(el('span', 'account-option-name', account.username));
+		if (account.uuid === current.uuid) row.appendChild(el('span', 'pill ok', 'default'));
+
+		row.addEventListener('click', async () => {
+			menu.hidden = true;
+			if (account.uuid === current.uuid) return;
+			if (await call(api.accounts.setPrimary(account.uuid), 'Could not switch')) {
+				toast('Playing as ' + account.username);
+				renderAccountChip();
+				if (state.settingsSection === 'accounts') renderAccounts();
+			}
+		});
+		menu.appendChild(row);
+	}
+
+	const manage = el('button', 'account-option manage', 'Manage accounts');
+	manage.addEventListener('click', () => {
+		menu.hidden = true;
+		show('settings');
+		showSection('accounts');
+	});
+	menu.appendChild(manage);
+
+	chip.onclick = (event) => {
+		event.stopPropagation();
+		menu.hidden = !menu.hidden;
+		chip.setAttribute('aria-expanded', String(!menu.hidden));
+	};
+}
+
 /* -- routing -------------------------------------------------------------------------- */
 
 function show(view) {
@@ -1099,6 +1223,7 @@ function showSection(name) {
 	if (name === 'sources') renderSources();
 	if (name === 'java') { renderJavas(); renderGlobalOptions(); }
 	if (name === 'accounts') renderAccounts();
+	if (name === 'appearance') { renderAppearance(); renderThemes(); }
 	if (name === 'about') renderAbout();
 }
 
@@ -1158,6 +1283,37 @@ async function renderJavas() {
  * so plainly rather than showing a button that cannot work. Stating why a thing is absent
  * is more useful than hiding that it should be there.
  */
+/**
+ * Uploads a new skin.
+ *
+ * The file is chosen through the operating system's own dialog: a sandboxed page can read
+ * a file somebody picks but never learns its path, and the jar needs a path to upload
+ * from. It also means this page never decides which file gets read.
+ */
+async function changeSkin(account) {
+	const chosen = await api.accounts.chooseSkinFile();
+	if (!chosen.ok) return;
+
+	const variant = await askVariant();
+	if (!variant) return;
+
+	const started = await call(api.accounts.setSkin(account.uuid, chosen.data, variant),
+		'Could not change skin');
+	if (started) toast('Uploading skin...');
+}
+
+/** Classic or slim arms, which the texture itself cannot tell us. */
+function askVariant() {
+	return new Promise((resolve) => {
+		$('variant-title').textContent = 'Arm width';
+		const dialog = $('variant-dialog');
+		dialog.showModal();
+		dialog.addEventListener('close', () => {
+			resolve(dialog.returnValue === 'cancel' ? null : dialog.returnValue);
+		}, { once: true });
+	});
+}
+
 async function renderAccounts() {
 	const box = $('accounts-body');
 	clear(box);
@@ -1192,14 +1348,14 @@ function accountRow(account) {
 	const row = el('div', 'row');
 	row.style.gridTemplateColumns = '40px minmax(0,1fr) auto';
 
-	// The face off the account's own skin, which is how anyone actually tells two accounts
-	// apart. Falls back to a lettered tile if the avatar service is unreachable.
-	const face = document.createElement('img');
-	face.className = 'art';
-	face.alt = '';
-	face.src = 'https://crafatar.com/avatars/' + account.uuid + '?size=80&overlay';
-	face.addEventListener('error', () => face.replaceWith(avatarNode(account.username, 'art')));
-	row.appendChild(face);
+	// Drawn from the texture rather than fetched from an avatar service, which would learn
+	// the UUID of every account anybody signs in with.
+	const holder = el('div', 'art face-holder');
+	row.appendChild(holder);
+	faceFor(account.uuid, account.username, 40).then((node) => {
+		clear(holder);
+		holder.appendChild(node);
+	});
 
 	const body = el('div', 'row-body');
 	body.appendChild(el('div', 'row-title', account.username));
@@ -1219,6 +1375,10 @@ function accountRow(account) {
 		});
 		actions.appendChild(use);
 	}
+
+	const skin = el('button', 'btn quiet sm', 'Change skin');
+	skin.addEventListener('click', () => changeSkin(account));
+	actions.appendChild(skin);
 
 	const remove = el('button', 'btn quiet sm danger-hover', 'Remove');
 	remove.addEventListener('click', async () => {
@@ -1289,6 +1449,65 @@ function renderAbout() {
 }
 
 /* -- appearance ------------------------------------------------------------------------------- */
+
+/**
+ * Whole palettes, each named for what it looks like rather than what it is for.
+ *
+ * The preview colours are duplicated from the stylesheet on purpose: a swatch has to be
+ * drawn before its theme is applied, so it cannot read the variables it is previewing.
+ */
+const THEMES = [
+	{ value: 'default', label: 'Default', bg: '#101317', surface: '#171b21', line: '#303844' },
+	{ value: 'slate', label: 'Slate', bg: '#0e1116', surface: '#161a21', line: '#2f3846' },
+	{ value: 'carbon', label: 'Carbon', bg: '#0b0b0d', surface: '#141416', line: '#2e2e34' },
+	{ value: 'ocean', label: 'Ocean', bg: '#0c1418', surface: '#121d23', line: '#273b46' },
+	{ value: 'plum', label: 'Plum', bg: '#120f17', surface: '#1a1622', line: '#342c43' },
+];
+
+function applyTheme(name) {
+	// The default is the stylesheet's own :root, so it is expressed by removing the
+	// attribute rather than by a block that restates every value and could drift from it.
+	if (name && name !== 'default') {
+		document.documentElement.dataset.theme = name;
+	} else {
+		delete document.documentElement.dataset.theme;
+	}
+}
+
+function renderThemes() {
+	const box = $('themes');
+	if (!box) return;
+	clear(box);
+
+	const chosen = stored('theme', 'default');
+	for (const theme of THEMES) {
+		const swatch = el('button', 'theme-swatch');
+		if (theme.value === chosen) swatch.classList.add('chosen');
+		swatch.title = theme.label;
+
+		const preview = el('div', 'theme-preview');
+		preview.style.background = theme.bg;
+
+		const rail = el('span');
+		rail.style.background = theme.surface;
+		preview.appendChild(rail);
+
+		const panel = el('span');
+		panel.style.background = theme.surface;
+		panel.style.border = '1px solid ' + theme.line;
+		preview.appendChild(panel);
+
+		swatch.appendChild(preview);
+		swatch.appendChild(el('span', 'theme-name', theme.label));
+
+		swatch.addEventListener('click', () => {
+			remember('theme', theme.value);
+			applyTheme(theme.value);
+			renderThemes();
+		});
+		box.appendChild(swatch);
+	}
+}
 
 const ACCENTS = [
 	{ value: '#35c37d', label: 'Green' },
@@ -1611,6 +1830,17 @@ function reportSuccess(job) {
 	if (job.kind === 'sign-in') {
 		$('signin-dialog').close();
 		toast('Signed in as ' + result.username);
+		renderAccountChip();
+		if (state.settingsSection === 'accounts') renderAccounts();
+		return;
+	}
+
+	if (job.kind === 'skin') {
+		// The cache holds the old texture, and the face would otherwise stay stale until
+		// the app restarted.
+		skinCache.delete(result.uuid);
+		toast('Skin changed');
+		renderAccountChip();
 		if (state.settingsSection === 'accounts') renderAccounts();
 		return;
 	}
@@ -2029,6 +2259,11 @@ function wire() {
 		if (state.job) api.jobs.cancel(state.job.id);
 	});
 
+	document.addEventListener('click', (event) => {
+		const menu = $('account-menu');
+		if (!menu.hidden && !event.target.closest('.titlebar-account')) menu.hidden = true;
+	});
+
 	api.onJobEvent(onJobEvent);
 	api.onReady(start);
 }
@@ -2045,11 +2280,13 @@ async function start() {
 	if (started) return;
 	started = true;
 
+	applyTheme(stored('theme', 'default'));
 	applyAccent(stored('accent', ACCENTS[0].value));
 	applyDensity(stored('density', 'comfortable'));
 	renderAppearance();
 
 	await loadInstances();
+	renderAccountChip();
 	show('home');
 }
 

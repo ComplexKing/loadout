@@ -168,6 +168,12 @@ public final class ApiServer {
 				Json.send(exchange, 200, this.routes.beginSignIn()));
 		add("POST", "/accounts/complete", (exchange, path, query) ->
 				Json.send(exchange, 202, this.routes.completeSignIn(Json.readObject(exchange))));
+		add("GET", "/accounts/{uuid}/skin", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.accountSkin(path.get("uuid"))));
+		add("PUT", "/accounts/{uuid}/skin", (exchange, path, query) ->
+				Json.send(exchange, 202,
+						this.routes.setAccountSkin(path.get("uuid"), Json.readObject(exchange))));
+
 		add("POST", "/accounts/{uuid}/primary", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.setPrimaryAccount(path.get("uuid"))));
 		add("DELETE", "/accounts/{uuid}", (exchange, path, query) ->

@@ -1589,3 +1589,178 @@ img.art { color: transparent; }
 }
 
 .code-where { text-align: center; }
+
+/* -- account chip -------------------------------------------------------------------------- */
+
+/*
+ * Sits in the title bar, outside the drag region -- anything inside it is a handle for
+ * moving the window and cannot be clicked.
+ */
+.titlebar-account {
+	position: relative;
+	padding-right: 10px;
+	-webkit-app-region: no-drag;
+}
+
+.account-chip {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+	padding: 4px 9px 4px 4px;
+	border: 1px solid transparent;
+	border-radius: 999px;
+	background: transparent;
+	color: var(--text-2);
+	font-size: 12.5px;
+	font-weight: 600;
+	cursor: pointer;
+	max-width: 220px;
+	transition: background 140ms var(--ease), border-color 140ms var(--ease), color 140ms var(--ease);
+}
+
+.account-chip:hover { background: var(--surface-2); border-color: var(--line-2); color: var(--text); }
+.account-chip.empty { color: var(--text-3); }
+
+.chip-face {
+	width: 22px; height: 22px;
+	border-radius: 6px;
+	overflow: hidden;
+	display: grid;
+	place-items: center;
+	background: var(--surface-3);
+	flex: none;
+}
+
+.chip-face canvas { display: block; }
+.chip-face .art { width: 22px; height: 22px; font-size: 11px; border-radius: 6px; }
+
+.chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.account-menu {
+	position: absolute;
+	top: calc(100% + 6px);
+	right: 10px;
+	z-index: 80;
+	min-width: 230px;
+	background: var(--surface-2);
+	border: 1px solid var(--line-2);
+	border-radius: var(--r);
+	box-shadow: var(--shadow);
+	padding: 5px;
+}
+
+.account-option {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	width: 100%;
+	padding: 7px 9px;
+	border: none;
+	background: transparent;
+	color: var(--text-2);
+	border-radius: var(--r-sm);
+	cursor: pointer;
+	font-size: 13px;
+	text-align: left;
+}
+
+.account-option:hover { background: var(--surface-3); color: var(--text); }
+.account-option.chosen { color: var(--text); }
+.account-option-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.account-option.manage {
+	border-top: 1px solid var(--line);
+	margin-top: 4px;
+	padding-top: 10px;
+	border-radius: 0 0 var(--r-sm) var(--r-sm);
+	color: var(--text-3);
+}
+
+.face-holder { overflow: hidden; display: grid; place-items: center; }
+.face-holder canvas { display: block; }
+
+/* -- themes -------------------------------------------------------------------------------- */
+
+/*
+ * Whole palettes rather than only an accent. An accent alone leaves every surface the same
+ * shade, so "themes" that change one colour all look like the same theme -- which is what
+ * the previous version was.
+ */
+:root[data-theme="slate"] {
+	--bg: #0e1116;
+	--surface: #161a21;
+	--surface-2: #1c222b;
+	--surface-3: #242c37;
+	--line: #232a34;
+	--line-2: #2f3846;
+}
+
+:root[data-theme="carbon"] {
+	--bg: #0b0b0d;
+	--surface: #141416;
+	--surface-2: #1b1b1e;
+	--surface-3: #232327;
+	--line: #202024;
+	--line-2: #2e2e34;
+	--text-2: #a8a8b0;
+	--text-3: #6e6e78;
+}
+
+:root[data-theme="ocean"] {
+	--bg: #0c1418;
+	--surface: #121d23;
+	--surface-2: #17252d;
+	--surface-3: #1e2f39;
+	--line: #1b2a32;
+	--line-2: #273b46;
+	--text-2: #9db3bd;
+	--text-3: #667c86;
+}
+
+:root[data-theme="plum"] {
+	--bg: #120f17;
+	--surface: #1a1622;
+	--surface-2: #211c2b;
+	--surface-3: #2a2436;
+	--line: #241f2f;
+	--line-2: #342c43;
+	--text-2: #b0a5be;
+	--text-3: #786e85;
+}
+
+.theme-row { display: flex; gap: 10px; flex-wrap: wrap; }
+
+.theme-swatch {
+	width: 74px;
+	border-radius: 11px;
+	border: 2px solid transparent;
+	background: transparent;
+	cursor: pointer;
+	padding: 0;
+	overflow: hidden;
+	transition: border-color 140ms var(--ease), transform 140ms var(--ease);
+}
+
+.theme-swatch:hover { transform: translateY(-2px); }
+.theme-swatch.chosen { border-color: var(--accent); }
+
+/* A miniature of the interface, which reads faster than a colour name. */
+.theme-preview {
+	height: 46px;
+	display: grid;
+	grid-template-columns: 14px 1fr;
+	gap: 3px;
+	padding: 4px;
+}
+
+.theme-preview span { border-radius: 3px; display: block; }
+
+.theme-name {
+	display: block;
+	font-size: 11px;
+	font-weight: 600;
+	padding: 5px 0 6px;
+	color: var(--text-3);
+}
+
+.theme-swatch.chosen .theme-name { color: var(--text); }

@@ -191,6 +191,10 @@ function registerHandlers() {
 		api.request('POST', '/accounts/complete', { deviceCode, intervalSeconds }));
 	handle('accounts:primary', (uuid) =>
 		api.request('POST', `/accounts/${encodeURIComponent(uuid)}/primary`, {}));
+	handle('accounts:skin', (uuid) => api.get(`/accounts/${encodeURIComponent(uuid)}/skin`));
+	handle('accounts:setSkin', (uuid, path, variant) =>
+		api.request('PUT', `/accounts/${encodeURIComponent(uuid)}/skin`, { path, variant }));
+
 	handle('accounts:remove', (uuid) =>
 		api.request('DELETE', `/accounts/${encodeURIComponent(uuid)}`));
 
@@ -208,6 +212,24 @@ function registerHandlers() {
 	 * path, and openPath on an arbitrary string would hand the page a way to launch
 	 * whatever it liked through the shell.
 	 */
+	/**
+	 * Asks for a skin file.
+	 *
+	 * <p>A sandboxed page can read a file the user picks but cannot learn its path, and the
+	 * jar needs a path to upload from. The native dialog is the only thing that can bridge
+	 * that, and it also means the page never chooses what gets read.
+	 */
+	ipcMain.handle('accounts:chooseSkin', async () => {
+		const chosen = await dialog.showOpenDialog(window, {
+			title: 'Choose a skin',
+			filters: [{ name: 'Skin', extensions: ['png'] }],
+			properties: ['openFile'],
+		});
+		return chosen.canceled || chosen.filePaths.length === 0
+			? { ok: false, error: 'Cancelled' }
+			: { ok: true, data: chosen.filePaths[0] };
+	});
+
 	ipcMain.handle('open:path', async (_event, target) => {
 		if (typeof target !== 'string' || !target) {
 			return { ok: false, error: 'No path given' };

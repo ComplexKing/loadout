@@ -15,6 +15,7 @@ import dev.loadout.core.Settings;
 import dev.loadout.core.Snapshot;
 import dev.loadout.core.auth.AccountStore;
 import dev.loadout.core.auth.MicrosoftAuth;
+import dev.loadout.core.auth.SkinService;
 import dev.loadout.core.auth.StoredAccount;
 import dev.loadout.core.browse.ModInstaller;
 import dev.loadout.core.instance.InstanceContent;
@@ -637,6 +638,62 @@ final class Routes {
 			throw ApiException.notFound("No account with that id");
 		}
 		return accounts();
+	}
+
+	/**
+	 * The skin texture for an account, as bytes rather than a link.
+	 *
+	 * <p>Fetched here so the interface never has to reach a skin-rendering service, which
+	 * would learn the UUID of every account anyone signs in with. The face is drawn from
+	 * this by the interface itself.
+	 */
+	JsonObject accountSkin(String uuid) throws IOException {
+		try {
+			var skin = new SkinService().fetch(uuid);
+			JsonObject result = Json.object();
+
+			if (skin.isPresent()) {
+				result.addProperty("png", skin.get().pngBase64());
+				result.addProperty("variant", skin.get().variant());
+				if (skin.get().capeBase64() != null) {
+					result.addProperty("cape", skin.get().capeBase64());
+				}
+			}
+			return result;
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new ApiException(503, "Interrupted while reading the skin");
+		}
+	}
+
+	/**
+	 * Changes an account's skin.
+	 *
+	 * <p>Needs a live token, so the account is refreshed first -- a stored access token
+	 * would be expired most of the time.
+	 */
+	JsonObject setAccountSkin(String uuid, JsonObject body) throws IOException {
+		String path = Json.requireString(body, "path");
+		String variant = Json.optionalString(body, "variant", "classic");
+
+		StoredAccount account = new AccountStore(this.home.root()).byUuid(uuid)
+				.orElseThrow(() -> ApiException.notFound("No account with that id"));
+
+		String jobId = this.jobs.submit("skin", account.username(), reporter -> {
+			reporter.progress("Refreshing session", 0, 0);
+			var session = auth().refresh(account.refreshToken());
+			new AccountStore(this.home.root()).save(session.toStored());
+
+			reporter.progress("Uploading skin", 0, 0);
+			new SkinService().upload(session.accessToken(), java.nio.file.Path.of(path), variant);
+
+			JsonObject json = Json.object();
+			json.addProperty("username", session.username());
+			json.addProperty("uuid", session.uuid());
+			return json;
+		});
+
+		return jobRef(jobId);
 	}
 
 	// -- launch options ---------------------------------------------------------------
