@@ -959,7 +959,34 @@ img.art { color: transparent; }
  */
 .combo { position: relative; }
 
-.combo input { width: 100%; padding-right: 34px; }
+/*
+ * Styled here rather than inherited from a container. This input used to pick up
+ * ".inline-form input", which was later narrowed to direct children so it would stop
+ * reaching the checkbox inside the dropdown -- and this input, being nested one level
+ * deeper, silently fell back to the browser's own control. Stating it locally means it
+ * cannot be lost again by a change somewhere else.
+ */
+.combo input {
+	width: 100%;
+	padding: 9px 34px 9px 12px;
+	font: inherit;
+	background: var(--bg);
+	border: 1px solid var(--line-2);
+	border-radius: 10px;
+	color: var(--text);
+	outline: none;
+	transition: border-color 130ms var(--ease), box-shadow 130ms var(--ease);
+}
+
+.combo input::placeholder { color: var(--text-3); }
+
+.combo input:focus {
+	border-color: var(--accent);
+	box-shadow: 0 0 0 3px var(--accent-glow);
+}
+
+/* The migration picker sits in a row of buttons and needs a width of its own. */
+.inline-form .combo { min-width: 230px; }
 
 .combo-caret {
 	position: absolute;
