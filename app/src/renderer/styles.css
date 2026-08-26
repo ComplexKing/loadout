@@ -1764,3 +1764,55 @@ img.art { color: transparent; }
 }
 
 .theme-swatch.chosen .theme-name { color: var(--text); }
+
+/* -- window controls ---------------------------------------------------------------------- */
+
+/*
+ * Drawn here rather than by the platform. The native overlay sits on top of the page in a
+ * strip the page has to guess the width of and stay clear of -- which is how the account
+ * chip ended up underneath it. Owning the whole bar means nothing can be overlapped.
+ *
+ * The sizes are Windows' own: 46 by 32, close turning red on hover. Matching what people
+ * already aim at matters more here than matching the rest of this interface.
+ */
+.window-controls {
+	display: flex;
+	align-self: stretch;
+	-webkit-app-region: no-drag;
+	flex: none;
+}
+
+.win-btn {
+	width: 46px;
+	display: grid;
+	place-items: center;
+	border: none;
+	background: transparent;
+	color: var(--text-2);
+	cursor: pointer;
+	transition: background 120ms var(--ease), color 120ms var(--ease);
+}
+
+.win-btn svg { width: 10px; height: 10px; }
+
+.win-btn:hover { background: var(--surface-2); color: var(--text); }
+.win-btn:active { background: var(--surface-3); }
+
+.win-btn.close:hover { background: #c42b1c; color: #fff; }
+.win-btn.close:active { background: #b02a1c; }
+
+/* The maximised icon is two offset squares, the same as every Windows app. */
+.win-btn.restored svg rect { transform: translate(1px, -1px) scale(0.86); }
+
+.win-btn.restored::after {
+	content: '';
+	position: absolute;
+	width: 7px; height: 7px;
+	margin: 3px -3px 0 0;
+	border: 1px solid currentColor;
+	border-right: none;
+	border-bottom: none;
+	pointer-events: none;
+}
+
+.win-btn { position: relative; }

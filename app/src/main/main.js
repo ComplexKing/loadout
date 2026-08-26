@@ -21,8 +21,12 @@ function createWindow() {
 		backgroundColor: '#14161a',
 		// The frame is drawn by the page so the sidebar can run the full height, which is
 		// most of why Prism and the Modrinth app look like applications rather than forms.
+		//
+		// No titleBarOverlay: that draws the platform's own buttons on top of the page, in
+		// a strip whose width the page has to guess at and stay clear of -- and anything
+		// placed near the corner ends up underneath them. Drawing the three buttons here
+		// means the whole bar is ours, so nothing can be overlapped and they match.
 		titleBarStyle: 'hidden',
-		titleBarOverlay: { color: '#14161a', symbolColor: '#8b93a1', height: 38 },
 		webPreferences: {
 			preload: path.join(__dirname, '..', 'preload', 'preload.js'),
 			// The renderer displays text written by strangers -- mod titles, descriptions,
@@ -54,6 +58,14 @@ function createWindow() {
 	// The jar and the page start at the same time and either can win. Announcing on both
 	// edges -- when the backend comes up, and when a page finishes loading if it is
 	// already up -- is what makes a reload behave the same as a cold start.
+	for (const event of ['maximize', 'unmaximize', 'enter-full-screen', 'leave-full-screen']) {
+		window.on(event, () => {
+			if (window && !window.isDestroyed()) {
+				window.webContents.send('window:state', window.isMaximized());
+			}
+		});
+	}
+
 	window.webContents.on('did-finish-load', () => {
 		if (ready && window && !window.isDestroyed()) {
 			window.webContents.send('backend:ready');
@@ -229,6 +241,35 @@ function registerHandlers() {
 			? { ok: false, error: 'Cancelled' }
 			: { ok: true, data: chosen.filePaths[0] };
 	});
+
+	/**
+	 * The window buttons.
+	 *
+	 * <p>Separate channels rather than one taking a name, so the page cannot ask for an
+	 * action that was never meant to be offered.
+	 */
+	ipcMain.handle('window:minimize', () => {
+		if (window && !window.isDestroyed()) window.minimize();
+		return { ok: true };
+	});
+
+	ipcMain.handle('window:toggleMaximize', () => {
+		if (!window || window.isDestroyed()) return { ok: true, data: false };
+		if (window.isMaximized()) {
+			window.unmaximize();
+		} else {
+			window.maximize();
+		}
+		return { ok: true, data: window.isMaximized() };
+	});
+
+	ipcMain.handle('window:close', () => {
+		if (window && !window.isDestroyed()) window.close();
+		return { ok: true };
+	});
+
+	ipcMain.handle('window:isMaximized', () =>
+		({ ok: true, data: Boolean(window && !window.isDestroyed() && window.isMaximized()) }));
 
 	ipcMain.handle('open:path', async (_event, target) => {
 		if (typeof target !== 'string' || !target) {

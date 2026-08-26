@@ -2106,6 +2106,14 @@ function mountSelects() {
 let versionCombo = null;
 let migrateCombo = null;
 
+/** Swaps the maximise glyph for the restore one, and the tooltip with it. */
+function paintMaximised(maximized) {
+	const button = $('win-max');
+	button.classList.toggle('restored', Boolean(maximized));
+	button.title = maximized ? 'Restore' : 'Maximise';
+	button.setAttribute('aria-label', button.title);
+}
+
 function wire() {
 	mountSelects();
 
@@ -2263,6 +2271,18 @@ function wire() {
 		const menu = $('account-menu');
 		if (!menu.hidden && !event.target.closest('.titlebar-account')) menu.hidden = true;
 	});
+
+	$('win-min').addEventListener('click', () => api.window.minimize());
+	$('win-close').addEventListener('click', () => api.window.close());
+	$('win-max').addEventListener('click', async () => {
+		const result = await api.window.toggleMaximize();
+		if (result.ok) paintMaximised(result.data);
+	});
+
+	// Pushed from the main process as well, since a window can be maximised by dragging it
+	// to the top edge or with a keyboard shortcut, neither of which goes through the button.
+	api.window.onStateChange(paintMaximised);
+	api.window.isMaximized().then((result) => { if (result.ok) paintMaximised(result.data); });
 
 	api.onJobEvent(onJobEvent);
 	api.onReady(start);

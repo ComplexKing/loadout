@@ -88,6 +88,18 @@ contextBridge.exposeInMainWorld('loadout', {
 		cancel: (id) => invoke('jobs:cancel', id),
 	},
 
+	window: {
+		minimize: () => invoke('window:minimize'),
+		toggleMaximize: () => invoke('window:toggleMaximize'),
+		close: () => invoke('window:close'),
+		isMaximized: () => invoke('window:isMaximized'),
+		onStateChange: (callback) => {
+			const listener = (_event, maximized) => callback(maximized);
+			ipcRenderer.on('window:state', listener);
+			return () => ipcRenderer.removeListener('window:state', listener);
+		},
+	},
+
 	openExternal: (url) => invoke('open:external', url),
 	openPath: (target) => invoke('open:path', target),
 
