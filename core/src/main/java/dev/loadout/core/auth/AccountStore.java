@@ -61,18 +61,69 @@ public final class AccountStore {
 		return all().stream().filter(StoredAccount::isVerified).findFirst();
 	}
 
-	/** Adds or replaces an account, matching on username. */
+	/**
+	 * Adds or replaces an account, matching on UUID.
+	 *
+	 * <p>The UUID rather than the name, because a Minecraft name can be changed and the
+	 * account behind it is the same one. Matching on name would leave a stale duplicate
+	 * every time somebody renamed themselves.
+	 */
 	public void save(StoredAccount account) throws IOException {
 		List<StoredAccount> accounts = new ArrayList<>(all());
-		accounts.removeIf(existing -> existing.username().equalsIgnoreCase(account.username()));
+		accounts.removeIf(existing -> sameAccount(existing, account));
 		accounts.add(account);
 		write(accounts);
+	}
+
+	private static boolean sameAccount(StoredAccount a, StoredAccount b) {
+		if (a.uuid() != null && b.uuid() != null) {
+			return a.uuid().equalsIgnoreCase(b.uuid());
+		}
+		return a.username().equalsIgnoreCase(b.username());
+	}
+
+	public Optional<StoredAccount> byUuid(String uuid) throws IOException {
+		return all().stream()
+				.filter(account -> uuid.equalsIgnoreCase(account.uuid()))
+				.findFirst();
+	}
+
+	/**
+	 * Makes one account the default, by moving it to the front.
+	 *
+	 * <p>Order is the selection rather than a separate flag: one list with a meaningful
+	 * order cannot disagree with itself, whereas a flag stored alongside can end up set on
+	 * two accounts or on none.
+	 */
+	public boolean setPrimary(String uuid) throws IOException {
+		List<StoredAccount> accounts = new ArrayList<>(all());
+		Optional<StoredAccount> chosen = accounts.stream()
+				.filter(account -> uuid.equalsIgnoreCase(account.uuid()))
+				.findFirst();
+
+		if (chosen.isEmpty()) {
+			return false;
+		}
+
+		accounts.remove(chosen.get());
+		accounts.add(0, chosen.get());
+		write(accounts);
+		return true;
 	}
 
 	public void remove(String username) throws IOException {
 		List<StoredAccount> accounts = new ArrayList<>(all());
 		accounts.removeIf(existing -> existing.username().equalsIgnoreCase(username));
 		write(accounts);
+	}
+
+	public boolean removeByUuid(String uuid) throws IOException {
+		List<StoredAccount> accounts = new ArrayList<>(all());
+		boolean removed = accounts.removeIf(existing -> uuid.equalsIgnoreCase(existing.uuid()));
+		if (removed) {
+			write(accounts);
+		}
+		return removed;
 	}
 
 	private void write(List<StoredAccount> accounts) throws IOException {

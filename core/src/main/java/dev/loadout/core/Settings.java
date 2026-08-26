@@ -21,7 +21,18 @@ import java.util.Set;
 public final class Settings {
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
+	/**
+	 * Loadout's own Azure application, approved by Mojang for the authentication API.
+	 *
+	 * <p>Not a secret. A desktop application is a public OAuth client: it cannot keep one,
+	 * so the protocol is designed not to need one -- the device flow proves the person,
+	 * not the program. Overridable below so anyone building their own copy can register
+	 * their own application rather than borrowing this one.
+	 */
+	public static final String DEFAULT_CLIENT_ID = "250f302e-ac46-430a-a556-1a3c2c8fe548";
+
 	private String curseForgeApiKey;
+	private String azureClientId;
 	private GameOptions gameDefaults;
 
 	/** May be null; CurseForge is simply unavailable until one is set. */
@@ -43,6 +54,16 @@ public final class Settings {
 
 	public void setGameDefaults(GameOptions replacement) {
 		this.gameDefaults = replacement;
+	}
+
+	public String azureClientId() {
+		return this.azureClientId == null || this.azureClientId.isBlank()
+				? DEFAULT_CLIENT_ID
+				: this.azureClientId.trim();
+	}
+
+	public void setAzureClientId(String id) {
+		this.azureClientId = id == null || id.isBlank() ? null : id.trim();
 	}
 
 	public static Path fileIn(Path loadoutRoot) {

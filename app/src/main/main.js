@@ -185,6 +185,15 @@ function registerHandlers() {
 	handle('options:defaults', () => api.get('/settings/game'));
 	handle('options:setDefaults', (options) => api.request('PUT', '/settings/game', options));
 
+	handle('accounts:list', () => api.get('/accounts'));
+	handle('accounts:signin', () => api.request('POST', '/accounts/signin', {}));
+	handle('accounts:complete', (deviceCode, intervalSeconds) =>
+		api.request('POST', '/accounts/complete', { deviceCode, intervalSeconds }));
+	handle('accounts:primary', (uuid) =>
+		api.request('POST', `/accounts/${encodeURIComponent(uuid)}/primary`, {}));
+	handle('accounts:remove', (uuid) =>
+		api.request('DELETE', `/accounts/${encodeURIComponent(uuid)}`));
+
 	handle('java:list', () => api.get('/java'));
 	handle('minecraft:versions', () => api.get('/minecraft/versions'));
 	handle('jobs:list', () => api.get('/jobs'));

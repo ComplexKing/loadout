@@ -1564,3 +1564,28 @@ img.art { color: transparent; }
 	overflow: hidden;
 	text-overflow: ellipsis;
 }
+
+
+/* -- sign-in code ------------------------------------------------------------------------ */
+
+/*
+ * The code is read off this screen and typed somewhere else, so it is set large, spaced,
+ * and in a face where 0 and O are different shapes. A code nobody can transcribe is a
+ * sign-in nobody completes.
+ */
+.code-box {
+	margin: 18px 0 6px;
+	padding: 16px;
+	text-align: center;
+	background: var(--bg);
+	border: 1px solid var(--line-2);
+	border-radius: var(--r);
+	font-family: ui-monospace, "Cascadia Mono", Consolas, monospace;
+	font-size: 30px;
+	font-weight: 700;
+	letter-spacing: 5px;
+	color: var(--accent-2);
+	user-select: text;
+}
+
+.code-where { text-align: center; }

@@ -37,6 +37,17 @@ public final class LaunchBuilder {
 		 * <p>The real Minecraft UUID is reused rather than a derived one, so worlds keep
 		 * the same player data whether the session was online or off.
 		 */
+		/**
+		 * A real session, with the token the game will authenticate to Mojang with.
+		 *
+		 * <p>Built from a refresh that just happened, never from anything stored: a
+		 * Minecraft access token lasts about a day, so one read off disk would be expired
+		 * more often than not.
+		 */
+		public static Account online(dev.loadout.core.auth.MicrosoftAuth.Session session) {
+			return new Account(session.username(), session.uuid(), session.accessToken(), true);
+		}
+
 		public static Account offlineFor(StoredAccount verified) {
 			if (verified == null || !verified.isVerified()) {
 				throw new IllegalArgumentException("Offline play needs an account that has signed in before");

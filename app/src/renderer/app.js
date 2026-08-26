@@ -1158,30 +1158,114 @@ async function renderJavas() {
  * so plainly rather than showing a button that cannot work. Stating why a thing is absent
  * is more useful than hiding that it should be there.
  */
-function renderAccounts() {
+async function renderAccounts() {
 	const box = $('accounts-body');
 	clear(box);
 
-	const block = el('div', 'card-block');
-	block.appendChild(el('h3', null, 'Microsoft sign-in'));
-	block.appendChild(el('p', 'sub',
-		'Loadout needs an approved Azure application before it can sign anyone in. That '
-		+ 'review is pending, so this is the one part of the launcher that is not wired up '
-		+ 'yet.'));
+	const data = await call(api.accounts.list(), 'Could not load accounts');
+	if (!data) return;
 
-	const note = el('p', 'sub spaced');
-	note.textContent = 'Offline play still requires an account that has signed in at least '
-		+ 'once on this machine. Skipping that check would make this a way of playing '
-		+ 'without a licence, which is a different product to the one this is.';
-	block.appendChild(note);
+	const list = el('div', 'card-block');
+	list.appendChild(el('h3', null, 'Signed in'));
 
-	const button = el('button', 'btn');
-	button.textContent = 'Sign in with Microsoft';
+	if (data.accounts.length === 0) {
+		list.appendChild(el('p', 'sub',
+			'No accounts yet. Loadout needs one Microsoft account that owns Minecraft. '
+			+ 'After that it can play offline too.'));
+	} else {
+		const rows = el('div', 'rows tight spaced');
+		for (const account of data.accounts) rows.appendChild(accountRow(account));
+		list.appendChild(rows);
+	}
+
+	const add = el('button', 'btn primary spaced');
+	add.appendChild(icon('i-user', 'ico sm'));
+	add.appendChild(el('span', null, data.accounts.length === 0
+		? 'Sign in with Microsoft' : 'Add another account'));
+	add.addEventListener('click', () => startSignIn(add));
+	list.appendChild(add);
+
+	box.appendChild(list);
+}
+
+function accountRow(account) {
+	const row = el('div', 'row');
+	row.style.gridTemplateColumns = '40px minmax(0,1fr) auto';
+
+	// The face off the account's own skin, which is how anyone actually tells two accounts
+	// apart. Falls back to a lettered tile if the avatar service is unreachable.
+	const face = document.createElement('img');
+	face.className = 'art';
+	face.alt = '';
+	face.src = 'https://crafatar.com/avatars/' + account.uuid + '?size=80&overlay';
+	face.addEventListener('error', () => face.replaceWith(avatarNode(account.username, 'art')));
+	row.appendChild(face);
+
+	const body = el('div', 'row-body');
+	body.appendChild(el('div', 'row-title', account.username));
+	body.appendChild(el('div', 'row-sub', 'Signed in ' + when(Date.parse(account.verifiedAt))));
+	row.appendChild(body);
+
+	const actions = el('div', 'row-actions');
+	if (account.primary) {
+		actions.appendChild(el('span', 'pill ok', 'default'));
+	} else {
+		const use = el('button', 'btn quiet sm', 'Make default');
+		use.addEventListener('click', async () => {
+			if (await call(api.accounts.setPrimary(account.uuid), 'Could not switch')) {
+				toast(account.username + ' is now the default');
+				renderAccounts();
+			}
+		});
+		actions.appendChild(use);
+	}
+
+	const remove = el('button', 'btn quiet sm danger-hover', 'Remove');
+	remove.addEventListener('click', async () => {
+		if (await call(api.accounts.remove(account.uuid), 'Could not remove')) {
+			toast('Removed ' + account.username);
+			renderAccounts();
+		}
+	});
+	actions.appendChild(remove);
+
+	row.appendChild(actions);
+	return row;
+}
+
+/**
+ * Runs the device sign-in.
+ *
+ * The code is shown here and typed into a real browser, so no password ever passes
+ * through this window -- which is the whole reason for choosing this flow over an
+ * embedded sign-in form.
+ */
+async function startSignIn(button) {
 	button.disabled = true;
-	button.title = 'Waiting on Azure application approval';
-	block.appendChild(el('div', 'spaced')).appendChild(button);
+	const started = await call(api.accounts.beginSignIn(), 'Could not start sign-in');
+	button.disabled = false;
+	if (!started) return;
 
-	box.appendChild(block);
+	$('sd-code').textContent = started.userCode;
+	$('sd-url').textContent = started.verificationUri;
+	$('sd-status').textContent = 'Waiting for you to finish in the browser...';
+	$('signin-dialog').showModal();
+
+	$('sd-open').onclick = () => api.openExternal(started.verificationUri);
+	$('sd-copy').onclick = async () => {
+		try {
+			await navigator.clipboard.writeText(started.userCode);
+			toast('Code copied');
+		} catch {
+			toast('Could not copy; the code is on screen to type', true);
+		}
+	};
+
+	// Opened straight away, since that is the next thing to do either way.
+	api.openExternal(started.verificationUri);
+
+	await call(api.accounts.completeSignIn(started.deviceCode, started.intervalSeconds),
+		'Sign-in failed');
 }
 
 function renderAbout() {
@@ -1483,7 +1567,11 @@ function onJobEvent(event) {
 		$('jobbar').hidden = true;
 	}
 
-	if (job.state === 'failed') toast(`${job.kind} failed: ${job.error}`, true);
+	if (job.state === 'failed') {
+		// A failed sign-in would otherwise leave its dialog covering the reason.
+		if (job.kind === 'sign-in') $('signin-dialog').close();
+		toast(`${job.kind} failed: ${job.error}`, true);
+	}
 	else if (job.state === 'cancelled') toast(`${job.kind} cancelled`);
 	else reportSuccess(job);
 
@@ -1517,6 +1605,13 @@ function reportSuccess(job) {
 		} else if (result.plan) {
 			renderPlan(result.plan);
 		}
+		return;
+	}
+
+	if (job.kind === 'sign-in') {
+		$('signin-dialog').close();
+		toast('Signed in as ' + result.username);
+		if (state.settingsSection === 'accounts') renderAccounts();
 		return;
 	}
 
@@ -1909,6 +2004,7 @@ function wire() {
 	});
 
 	$('vd-close').addEventListener('click', () => $('versions-dialog').close());
+	$('sd-cancel').addEventListener('click', () => $('signin-dialog').close());
 	$('sources-recheck').addEventListener('click', renderSources);
 
 	$('cf-save').addEventListener('click', async () => {

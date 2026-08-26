@@ -504,6 +504,23 @@
 	</form>
 </dialog>
 
+<dialog id="signin-dialog" class="dialog">
+	<h2>Sign in with Microsoft</h2>
+	<p class="sub">Your browser opens Microsoft&#39;s own sign-in page. Enter this code there
+		&mdash; no password is ever typed into Loadout.</p>
+
+	<div class="code-box"><span id="sd-code"></span></div>
+	<p class="sub code-where">at <span id="sd-url" class="selectable"></span></p>
+
+	<p class="sub spaced" id="sd-status"></p>
+
+	<div class="dialog-actions">
+		<button id="sd-copy" class="btn quiet">Copy code</button>
+		<button id="sd-open" class="btn">Open page again</button>
+		<button id="sd-cancel" class="btn quiet">Cancel</button>
+	</div>
+</dialog>
+
 <dialog id="versions-dialog" class="dialog wide">
 	<h2 id="vd-title">Choose a version</h2>
 	<p class="sub" id="vd-sub"></p>

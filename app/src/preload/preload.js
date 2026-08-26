@@ -61,6 +61,15 @@ contextBridge.exposeInMainWorld('loadout', {
 	launch: (profile, username) => invoke('launch', profile, username),
 	search: (query) => invoke('search', query),
 	versions: (source, id, profile) => invoke('versions', source, id, profile),
+	accounts: {
+		list: () => invoke('accounts:list'),
+		beginSignIn: () => invoke('accounts:signin'),
+		completeSignIn: (deviceCode, intervalSeconds) =>
+			invoke('accounts:complete', deviceCode, intervalSeconds),
+		setPrimary: (uuid) => invoke('accounts:primary', uuid),
+		remove: (uuid) => invoke('accounts:remove', uuid),
+	},
+
 	java: () => invoke('java:list'),
 
 	options: {

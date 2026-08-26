@@ -60,6 +60,11 @@ final class Json {
 		return element == null || element.isJsonNull() ? fallback : element.getAsString();
 	}
 
+	static int optionalInt(JsonObject body, String field, int fallback) {
+		JsonElement element = body.get(field);
+		return element == null || element.isJsonNull() ? fallback : element.getAsInt();
+	}
+
 	static boolean optionalBoolean(JsonObject body, String field, boolean fallback) {
 		JsonElement element = body.get(field);
 		return element == null || element.isJsonNull() ? fallback : element.getAsBoolean();

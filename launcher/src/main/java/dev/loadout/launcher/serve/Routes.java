@@ -14,6 +14,7 @@ import dev.loadout.core.ProfileManager;
 import dev.loadout.core.Settings;
 import dev.loadout.core.Snapshot;
 import dev.loadout.core.auth.AccountStore;
+import dev.loadout.core.auth.MicrosoftAuth;
 import dev.loadout.core.auth.StoredAccount;
 import dev.loadout.core.browse.ModInstaller;
 import dev.loadout.core.instance.InstanceContent;
@@ -522,6 +523,122 @@ final class Routes {
 		return jobRef(jobId);
 	}
 
+	// -- accounts ---------------------------------------------------------------------
+
+	private MicrosoftAuth auth() throws IOException {
+		return new MicrosoftAuth(this.home.settings().azureClientId());
+	}
+
+	private static JsonObject accountJson(StoredAccount account, boolean isPrimary) {
+		JsonObject json = Json.object();
+		json.addProperty("username", account.username());
+		json.addProperty("uuid", account.uuid());
+		json.addProperty("verifiedAt", account.verifiedAt());
+		json.addProperty("primary", isPrimary);
+		// The refresh token is never sent. It is the one thing here worth stealing, and the
+		// interface has no use for it.
+		return json;
+	}
+
+	JsonObject accounts() throws IOException {
+		java.util.List<StoredAccount> all = new AccountStore(this.home.root()).all();
+
+		JsonObject result = Json.object();
+		result.add("accounts", Json.arrayOf(all,
+				account -> accountJson(account, !all.isEmpty() && all.get(0) == account)));
+		return result;
+	}
+
+	/**
+	 * Starts a sign-in and returns what the person has to do.
+	 *
+	 * <p>Synchronous because it is one quick request and the answer -- a short code and a
+	 * URL -- is the whole point: it has to be on screen before anything starts waiting.
+	 */
+	JsonObject beginSignIn() throws IOException {
+		MicrosoftAuth.DeviceCode code;
+		try {
+			code = auth().begin();
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new ApiException(503, "Interrupted while starting sign-in");
+		}
+
+		JsonObject result = Json.object();
+		result.addProperty("userCode", code.userCode());
+		result.addProperty("verificationUri", code.verificationUri());
+		result.addProperty("deviceCode", code.deviceCode());
+		result.addProperty("intervalSeconds", code.intervalSeconds());
+		result.addProperty("expiresAt", code.expiresAt().toString());
+		return result;
+	}
+
+	/**
+	 * Waits for the sign-in to finish, as a job.
+	 *
+	 * <p>A job because this takes as long as somebody takes: they have to open a browser,
+	 * sign in, and approve. Holding a request open for minutes would tie the result to one
+	 * connection and lose it on a reload.
+	 */
+	JsonObject completeSignIn(JsonObject body) throws IOException {
+		String deviceCode = Json.requireString(body, "deviceCode");
+		int interval = Math.max(Json.optionalInt(body, "intervalSeconds", 5), 1);
+
+		String jobId = this.jobs.submit("sign-in", "Microsoft account", reporter -> {
+			MicrosoftAuth auth = auth();
+			reporter.progress("Waiting for you to finish in the browser", 0, 0);
+
+			// Bounded rather than forever: Microsoft expires the code, and a job that never
+			// finishes is one nobody can tell has failed.
+			java.time.Instant deadline = java.time.Instant.now().plusSeconds(15 * 60);
+
+			while (java.time.Instant.now().isBefore(deadline)) {
+				if (!reporter.shouldContinue()) {
+					throw new InterruptedException();
+				}
+
+				var session = auth.poll(deviceCode);
+				if (session.isPresent()) {
+					AccountStore store = new AccountStore(this.home.root());
+					store.save(session.get().toStored());
+
+					// First account signed in becomes the one launches use, which is what
+					// somebody with exactly one account means every time.
+					if (store.all().size() == 1) {
+						store.setPrimary(session.get().uuid());
+					}
+
+					reporter.log("Signed in as " + session.get().username());
+
+					JsonObject json = Json.object();
+					json.addProperty("username", session.get().username());
+					json.addProperty("uuid", session.get().uuid());
+					return json;
+				}
+
+				Thread.sleep(interval * 1000L);
+			}
+
+			throw new IOException("Timed out waiting for sign-in.");
+		});
+
+		return jobRef(jobId);
+	}
+
+	JsonObject setPrimaryAccount(String uuid) throws IOException {
+		if (!new AccountStore(this.home.root()).setPrimary(uuid)) {
+			throw ApiException.notFound("No account with that id");
+		}
+		return accounts();
+	}
+
+	JsonObject removeAccount(String uuid) throws IOException {
+		if (!new AccountStore(this.home.root()).removeByUuid(uuid)) {
+			throw ApiException.notFound("No account with that id");
+		}
+		return accounts();
+	}
+
 	// -- launch options ---------------------------------------------------------------
 
 	private static JsonObject optionsJson(GameOptions options) {
@@ -740,11 +857,26 @@ final class Routes {
 					? accounts.primary()
 					: accounts.byUsername(username).filter(StoredAccount::isVerified))
 					.orElseThrow(() -> new IllegalStateException(
-							"No signed-in account. Loadout needs a Microsoft account to have "
-									+ "authenticated at least once before it will launch, "
-									+ "including offline."));
+							"No signed-in account. Add one under Settings, Accounts."));
 
-			LaunchBuilder.Account account = LaunchBuilder.Account.offlineFor(verified);
+			// A fresh session where possible, falling back to offline. The access token the
+			// game needs lasts about a day, so it is fetched now rather than stored -- and
+			// if the network is down, an account that has signed in before can still play
+			// offline, which is what offline mode is actually for.
+			LaunchBuilder.Account account;
+			try {
+				reporter.progress("Refreshing session", 0, 0);
+				var session = auth().refresh(verified.refreshToken());
+
+				// Microsoft rotates refresh tokens, so the new one has to replace the old
+				// or the next launch signs in with a token that has already been spent.
+				accounts.save(session.toStored());
+				account = LaunchBuilder.Account.online(session);
+			} catch (IOException e) {
+				reporter.log("Could not refresh the session (" + e.getMessage()
+						+ "); starting offline.");
+				account = LaunchBuilder.Account.offlineFor(verified);
+			}
 
 			LogRedactor redactor = new LogRedactor();
 			redactor.addSecret(account.accessToken());

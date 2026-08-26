@@ -162,6 +162,17 @@ public final class ApiServer {
 		add("GET", "/search", (exchange, path, query) -> Json.send(exchange, 200, this.routes.search(query)));
 		add("GET", "/versions", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.versions(query)));
+		add("GET", "/accounts", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.accounts()));
+		add("POST", "/accounts/signin", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.beginSignIn()));
+		add("POST", "/accounts/complete", (exchange, path, query) ->
+				Json.send(exchange, 202, this.routes.completeSignIn(Json.readObject(exchange))));
+		add("POST", "/accounts/{uuid}/primary", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.setPrimaryAccount(path.get("uuid"))));
+		add("DELETE", "/accounts/{uuid}", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.removeAccount(path.get("uuid"))));
+
 		add("GET", "/java", (exchange, path, query) -> Json.send(exchange, 200, this.routes.javaInstalls()));
 		add("GET", "/minecraft/versions", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.minecraftVersions()));
