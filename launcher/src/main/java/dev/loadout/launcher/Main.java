@@ -76,6 +76,10 @@ public final class Main {
 						profile.mods().size(), profile.name(), profile.minecraftVersion(), profile.loader());
 				System.out.println("  " + home.modsDir(profile.name()));
 			}
+			case "new" -> {
+				need(rest, 2, "new <profile> <mc-version> [loader]");
+				newProfile(home, manager, rest.get(0), rest.get(1), loaderOr(rest, 2));
+			}
 			case "list" -> list(home);
 			case "migrate" -> {
 				need(rest, 2, "migrate <profile> <target-mc-version> [--apply] [--include-likely]");
@@ -171,6 +175,8 @@ public final class Main {
 				  plan <mods-dir> <target-mc-version> [loader]
 				      Report on a raw folder without importing it.
 
+				  new <profile> <mc-version> [loader]
+				      Create an empty profile.
 				  import <mods-dir> <profile> <mc-version> [loader]
 				      Adopt an existing mods folder as a profile. Copies, never moves.
 				  list
@@ -264,6 +270,28 @@ public final class Main {
 					truncate(mod.version() == null ? "-" : mod.version(), 16),
 					mod.isFabricMod() ? "" : "(no fabric.mod.json)");
 		}
+	}
+
+	private static void newProfile(LoadoutHome home, ProfileManager manager, String name,
+			String version, String loader) throws Exception {
+		try {
+			LoadoutHome.requireValidName(name);
+		} catch (IllegalArgumentException e) {
+			System.err.println(e.getMessage());
+			System.exit(2);
+		}
+
+		if (home.exists(name)) {
+			System.err.println("A profile called '" + name + "' already exists.");
+			System.exit(1);
+		}
+
+		Profile profile = new Profile(name, version, loader, List.of());
+		home.saveProfile(profile);
+		manager.materialise(profile);
+
+		System.out.printf("Created '%s' (Minecraft %s, %s)%n", name, version, loader);
+		System.out.println("  " + home.modsDir(name));
 	}
 
 	private static void list(LoadoutHome home) throws Exception {

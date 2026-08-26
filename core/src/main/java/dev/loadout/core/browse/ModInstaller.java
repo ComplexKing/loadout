@@ -110,6 +110,19 @@ public final class ModInstaller {
 				continue;
 			}
 
+			// Check again now the canonical id is known. A mod can be asked for by slug --
+			// "sodium" from a command line, or from a listing -- while a dependency always
+			// names the registry's own id. Comparing only what was requested means an
+			// already-installed dependency looks absent, gets resolved again, and is
+			// reported as an upgrade of a mod to itself.
+			String canonical = file.get().modId();
+			if (canonical != null && !canonical.equals(current)) {
+				if (present.contains(canonical) || toAdd.containsKey(canonical)) {
+					skipped.add(source.modTitle(current));
+					continue;
+				}
+			}
+
 			if (!file.get().isDownloadable()) {
 				// CurseForge authors can opt out of third-party distribution. Point at
 				// the page rather than pretending this is a failure.
@@ -117,7 +130,9 @@ public final class ModInstaller {
 				continue;
 			}
 
-			toAdd.put(current, file.get());
+			// Keyed by the canonical id so two routes to the same mod -- once by slug, once
+			// as another mod's dependency -- collapse into one entry.
+			toAdd.put(canonical != null ? canonical : current, file.get());
 			for (String dependency : file.get().requiredDependencies()) {
 				if (seen.add(dependency)) {
 					queue.add(dependency);
