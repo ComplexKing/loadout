@@ -370,10 +370,17 @@ function paintHeroMeta(profile) {
 	clear(meta);
 	meta.appendChild(el('span', 'pill', `Minecraft ${profile.minecraftVersion}`));
 	meta.appendChild(el('span', 'pill', profile.loader));
-	meta.appendChild(el('span', 'pill', `${profile.mods.length} mods`));
+	const mods = profile.mods.filter((m) => (m.contentType || 'mod') === 'mod').length;
+	meta.appendChild(el('span', 'pill', mods === 1 ? '1 mod' : `${mods} mods`));
 }
 
 /** Fills the counts beside each nav item, so the sidebar says what is in there. */
+/** How many tracked entries are of one kind. Older entries have no kind and are mods. */
+function countOfKind(kind) {
+	if (!state.current) return 0;
+	return state.current.mods.filter((m) => (m.contentType || 'mod') === kind).length;
+}
+
 async function refreshCounts(name) {
 	// Hidden rather than emptied: an empty count still draws its pill background, which
 	// reads as a stray dash beside every section that happens to have nothing in it.
@@ -384,28 +391,36 @@ async function refreshCounts(name) {
 		node.hidden = !(value > 0);
 	};
 
-	set('mods', state.current ? state.current.mods.length : 0);
+	set('mods', countOfKind('mod'));
+	set('resourcepack', countOfKind('resourcepack'));
+	set('shader', countOfKind('shader'));
 
-	const [packs, shaders, worlds, servers] = await Promise.all([
+	const [packs, shaders, worlds, servers, shots] = await Promise.all([
 		call(api.instance.packs(name, 'resourcepack')),
 		call(api.instance.packs(name, 'shader')),
 		call(api.instance.worlds(name)),
 		call(api.instance.servers(name)),
+		call(api.instance.screenshots(name)),
 	]);
 
 	if (!state.current || state.current.name !== name) return;
 
+	// The folder is the truth for packs: one dropped in by hand is there whether or not
+	// Loadout installed it, and a count that disagreed with the folder would be worse than
+	// no count.
 	state.counts = {
 		resourcepack: packs ? packs.packs.length : 0,
 		shader: shaders ? shaders.packs.length : 0,
 		worlds: worlds ? worlds.worlds.length : 0,
 		servers: servers ? servers.servers.length : 0,
+		screenshots: shots ? shots.screenshots.length : 0,
 	};
 
 	set('resourcepack', state.counts.resourcepack);
 	set('shader', state.counts.shader);
 	set('worlds', state.counts.worlds);
 	set('servers', state.counts.servers);
+	set('screenshots', state.counts.screenshots);
 }
 
 async function refreshCurrent() {
@@ -421,7 +436,12 @@ async function refreshCurrent() {
 
 /* -- instance tabs --------------------------------------------------------------------- */
 
-const CONTENT_TABS = { mods: 'mod', resourcepack: 'resourcepack', shader: 'shader' };
+// Worlds join the content panel so they get the same Installed/Add switch. They render
+// differently when installed -- a world is a folder the game owns, not a tracked file --
+// but the searching half is identical.
+const CONTENT_TABS = {
+	mods: 'mod', resourcepack: 'resourcepack', shader: 'shader', worlds: 'world',
+};
 
 function switchTab(name) {
 	state.tab = name;
@@ -438,16 +458,22 @@ function switchTab(name) {
 	}
 
 	if (isContent) {
-		$('content-search').placeholder = state.contentMode === 'installed'
-			? 'Filter installed'
-			: `Search ${state.contentKind === 'mod' ? 'mods' : state.contentKind + 's'}`;
+		$('content-search').placeholder = searchPlaceholder();
 		renderContent();
 	}
-	if (name === 'worlds') renderWorlds();
 	if (name === 'servers') renderServers();
+	if (name === 'screenshots') renderScreenshots();
 	if (name === 'logs') renderLogs();
 	if (name === 'versions') renderSnapshots();
 	if (name === 'settings') renderInstanceOptions();
+}
+
+/** What the search box is for, which differs per kind and per mode. */
+function searchPlaceholder() {
+	const plural = {
+		mod: 'mods', resourcepack: 'resource packs', shader: 'shaders', world: 'worlds',
+	}[state.contentKind] || 'content';
+	return state.contentMode === 'installed' ? `Filter ${plural}` : `Search ${plural}`;
 }
 
 function setContentMode(mode) {
@@ -456,9 +482,7 @@ function setContentMode(mode) {
 		button.classList.toggle('active', button.dataset.mode === mode);
 	}
 	$('content-search').value = '';
-	$('content-search').placeholder = mode === 'installed'
-		? 'Filter installed'
-		: `Search ${state.contentKind === 'mod' ? 'mods' : state.contentKind + 's'}`;
+	$('content-search').placeholder = searchPlaceholder();
 
 	// Only meaningful when searching a registry.
 	$('content-source').hidden = mode === 'installed';
@@ -490,6 +514,11 @@ async function renderInstalled() {
 	body.className = 'rows';
 	clear(body);
 
+	if (state.contentKind === 'world') {
+		await renderInstalledWorlds(body);
+		return;
+	}
+
 	const data = await call(api.instance.packs(state.current.name, state.contentKind));
 	if (!data) return;
 
@@ -519,18 +548,51 @@ async function renderInstalled() {
 	}
 }
 
+async function renderInstalledWorlds(body) {
+	const data = await call(api.instance.worlds(state.current.name), 'Could not read worlds');
+	if (!data) return;
+
+	const filter = $('content-search').value.trim().toLowerCase();
+	const worlds = data.worlds.filter((w) =>
+		!filter || w.name.toLowerCase().includes(filter) || w.folder.toLowerCase().includes(filter));
+
+	if (worlds.length === 0) {
+		body.appendChild(blank('i-globe', data.worlds.length === 0
+			? 'No worlds yet. Play the instance, or switch to Add to download one.'
+			: 'Nothing matches that filter.', true));
+		return;
+	}
+
+	for (const world of worlds) {
+		const row = el('div', 'row');
+		row.style.gridTemplateColumns = 'minmax(0,1fr) auto';
+
+		const info = el('div', 'row-body');
+		info.appendChild(el('div', 'row-title', world.name));
+		// The folder is shown when it differs, because that is what is on disk and what a
+		// backup or a manual copy would be called.
+		info.appendChild(el('div', 'row-sub', world.folder !== world.name
+			? `${world.folder} · ${bytes(world.sizeBytes)} · played ${when(world.lastPlayed)}`
+			: `${bytes(world.sizeBytes)} · played ${when(world.lastPlayed)}`));
+		row.appendChild(info);
+		body.appendChild(row);
+	}
+}
+
 function renderInstalledMods(body) {
 	clear(body);
 	if (!state.current) return;
 
 	const filter = $('content-search').value.trim().toLowerCase();
-	const mods = state.current.mods.filter((mod) =>
-		!filter
-		|| (mod.modId || '').toLowerCase().includes(filter)
-		|| mod.fileName.toLowerCase().includes(filter));
+	const mods = state.current.mods
+		.filter((mod) => (mod.contentType || 'mod') === 'mod')
+		.filter((mod) =>
+			!filter
+			|| (mod.modId || '').toLowerCase().includes(filter)
+			|| mod.fileName.toLowerCase().includes(filter));
 
 	if (mods.length === 0) {
-		body.appendChild(blank('i-puzzle', state.current.mods.length === 0
+		body.appendChild(blank('i-puzzle', countOfKind('mod') === 0
 			? 'No mods yet. Switch to Add to install some.'
 			: 'Nothing matches that filter.', true));
 		return;
@@ -715,20 +777,11 @@ function modCard(mod, alreadyInstalled, profileName) {
 	const install = el('button', 'btn primary sm', alreadyInstalled ? 'Installed' : 'Install');
 	install.disabled = alreadyInstalled || !profileName;
 
-	// Installing puts files in the instance's mods folder, which is right for a mod and
-	// wrong for everything else -- a resource pack belongs in resourcepacks/. Rather than
-	// quietly putting it in the wrong place, the button says so until the installer learns
-	// about content kinds. Browsing and opening the page still work.
-	if (mod.kind && mod.kind !== 'mod') {
-		install.disabled = true;
-		install.textContent = 'Use Page';
-		install.title = 'Installing ' + mod.kind + 's from here is not wired up yet — they '
-			+ 'would land in the mods folder. Open the page to download it for now.';
-	}
 	install.addEventListener('click', async () => {
 		install.disabled = true;
 		install.textContent = 'Installing…';
-		const started = await call(api.mods.install(profileName, mod.source, mod.id), 'Install failed');
+		const started = await call(
+			api.mods.install(profileName, mod.source, mod.id, mod.kind || 'mod'), 'Install failed');
 		if (!started) {
 			install.disabled = false;
 			install.textContent = 'Install';
@@ -736,7 +789,7 @@ function modCard(mod, alreadyInstalled, profileName) {
 	});
 	group.appendChild(install);
 
-	if (profileName) {
+	if (profileName && mod.kind !== 'world') {
 		const more = el('button', 'btn primary sm split-more');
 		more.appendChild(icon('i-chevron', 'ico sm'));
 		more.title = 'Choose a version';
@@ -836,7 +889,8 @@ async function openVersions(mod, profileName) {
 			pick.addEventListener('click', async () => {
 				pick.disabled = true;
 				const started = await call(
-					api.mods.installVersion(profileName, mod.source, mod.id, version.versionId),
+					api.mods.installVersion(profileName, mod.source, mod.id, version.versionId,
+						mod.kind || 'mod'),
 					'Install failed');
 				if (started) dialog.close(); else pick.disabled = false;
 			});
@@ -849,35 +903,6 @@ async function openVersions(mod, profileName) {
 }
 
 /* -- worlds, servers, logs ---------------------------------------------------------------- */
-
-async function renderWorlds() {
-	const body = $('worlds-body');
-	clear(body);
-
-	const data = await call(api.instance.worlds(state.current.name), 'Could not read worlds');
-	if (!data) return;
-
-	if (data.worlds.length === 0) {
-		body.appendChild(blank('i-globe', 'No worlds yet. One appears here after you play.', true));
-		return;
-	}
-
-	for (const world of data.worlds) {
-		const row = el('div', 'row');
-		row.style.gridTemplateColumns = 'minmax(0,1fr) auto';
-
-		const info = el('div', 'row-body');
-		info.appendChild(el('div', 'row-title', world.name));
-		// The folder is shown when it differs, because that is what is on disk and what a
-		// backup or a manual copy would be called.
-		info.appendChild(el('div', 'row-sub', world.folder !== world.name
-			? `${world.folder} · ${bytes(world.sizeBytes)} · played ${when(world.lastPlayed)}`
-			: `${bytes(world.sizeBytes)} · played ${when(world.lastPlayed)}`));
-		row.appendChild(info);
-
-		body.appendChild(row);
-	}
-}
 
 async function renderServers() {
 	const body = $('servers-body');
@@ -901,6 +926,58 @@ async function renderServers() {
 		info.appendChild(el('div', 'row-sub', server.address));
 		row.appendChild(info);
 		body.appendChild(row);
+	}
+}
+
+/**
+ * The screenshots the game has taken.
+ *
+ * Shown from disk rather than copied or re-encoded: these are the user's own files inside
+ * their own instance, and the paths come from the API rather than from anything the page
+ * chose, which is what makes allowing local images here narrow enough to be reasonable.
+ */
+async function renderScreenshots() {
+	const body = $('shots-body');
+	clear(body);
+
+	const data = await call(api.instance.screenshots(state.current.name), 'Could not read screenshots');
+	if (!data) return;
+
+	if (data.screenshots.length === 0) {
+		body.className = '';
+		body.appendChild(blank('i-image',
+			'No screenshots yet. Press F2 in game and they appear here.', true));
+		return;
+	}
+
+	body.className = 'shots';
+	for (const shot of data.screenshots) {
+		const card = el('div', 'shot');
+		card.title = shot.name;
+
+		const image = document.createElement('img');
+		image.loading = 'lazy';
+		image.alt = '';
+		// A Windows path is not a URL: the separators have to be flipped and each segment
+		// escaped, or a space or '#' in a file name breaks the reference. Built from a char
+		// code so no literal backslash appears in this file.
+		const sep = String.fromCharCode(92);
+		// The drive segment is left alone: encoding its colon gives C%3A, which is not a
+		// drive any more.
+		const parts = shot.path.split(sep).join('/').split('/')
+			.map((part, at) => (at === 0 ? part : encodeURIComponent(part)));
+		image.src = 'file:///' + parts.join('/');
+		card.appendChild(image);
+
+		const meta = el('div', 'shot-meta');
+		meta.appendChild(el('span', 'name', shot.name));
+		meta.appendChild(el('span', null, when(shot.takenAt)));
+		card.appendChild(meta);
+
+		// Opens in whatever views images on this machine, which is better than a viewer
+		// built here that would do less.
+		card.addEventListener('click', () => api.openPath(shot.path));
+		body.appendChild(card);
 	}
 }
 

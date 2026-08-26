@@ -59,7 +59,8 @@ public final class ProfileManager {
 			ModrinthVersion known = identified.get(jar.sha512());
 			entries.add(new Profile.Entry(hash, jar.fileName(), jar.enabled(),
 					known == null ? null : known.projectId(), jar.version(), jar.modId(),
-					known == null ? null : dev.loadout.core.source.SourceId.MODRINTH.key()));
+					known == null ? null : dev.loadout.core.source.SourceId.MODRINTH.key(),
+					dev.loadout.core.source.ContentType.MOD.key()));
 		}
 
 		Profile profile = new Profile(name, minecraftVersion, loader, entries);
@@ -79,14 +80,33 @@ public final class ProfileManager {
 	 * @return how many files were written
 	 */
 	public int materialise(Profile profile) throws IOException {
-		Path modsDir = this.home.modsDir(profile.name());
-		Files.createDirectories(modsDir);
+		Path instance = this.home.profileDir(profile.name());
 
-		if (Files.isDirectory(modsDir)) {
-			try (Stream<Path> existing = Files.list(modsDir)) {
+		// Cleared per folder rather than all at once, so a kind with no entries still has
+		// its folder emptied and one the profile does not manage is left alone.
+		java.util.Set<String> folders = new java.util.LinkedHashSet<>();
+		folders.add(dev.loadout.core.source.ContentType.MOD.folder());
+		for (Profile.Entry entry : profile.mods()) {
+			folders.add(entry.kind().folder());
+		}
+
+		for (String folder : folders) {
+			// Never saves/: a world is unpacked once and then belongs to the instance, so
+			// clearing it here would delete someone's world on the next change to anything.
+			if (folder.equals(dev.loadout.core.source.ContentType.WORLD.folder())) {
+				continue;
+			}
+
+			Path dir = instance.resolve(folder);
+			Files.createDirectories(dir);
+
+			try (Stream<Path> existing = Files.list(dir)) {
 				for (Path file : existing.filter(Files::isRegularFile).toList()) {
 					String fileName = file.getFileName().toString();
-					if (fileName.endsWith(".jar") || fileName.endsWith(".jar" + ModScanner.DISABLED_SUFFIX)) {
+					String bare = fileName.endsWith(ModScanner.DISABLED_SUFFIX)
+							? fileName.substring(0, fileName.length() - ModScanner.DISABLED_SUFFIX.length())
+							: fileName;
+					if (bare.endsWith(".jar") || bare.endsWith(".zip")) {
 						Files.delete(file);
 					}
 				}
@@ -95,7 +115,11 @@ public final class ProfileManager {
 
 		int written = 0;
 		for (Profile.Entry entry : profile.mods()) {
-			this.home.store().linkInto(entry.sha512(), modsDir, entry.fileName(), entry.enabled());
+			if (entry.kind().isArchive()) {
+				continue;   // unpacked at install time, not linked
+			}
+			Path dir = instance.resolve(entry.kind().folder());
+			this.home.store().linkInto(entry.sha512(), dir, entry.fileName(), entry.enabled());
 			written++;
 		}
 		return written;
@@ -146,7 +170,8 @@ public final class ProfileManager {
 					replacement.projectId(),
 					replacement.versionNumber(),
 					entry.modId(),
-					dev.loadout.core.source.SourceId.MODRINTH.key()));
+					dev.loadout.core.source.SourceId.MODRINTH.key(),
+					dev.loadout.core.source.ContentType.MOD.key()));
 			changed++;
 		}
 

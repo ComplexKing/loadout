@@ -15,7 +15,16 @@ public enum ContentType {
 	MOD("mod", "mods", 6),
 	RESOURCE_PACK("resourcepack", "resourcepacks", 12),
 	SHADER("shader", "shaderpacks", 6552),
-	DATAPACK("datapack", "datapacks", 6945);
+	DATAPACK("datapack", "datapacks", 6945),
+	/**
+	 * A saved world.
+	 *
+	 * <p>Unlike the others this is not a file the game reads in place -- it is an archive
+	 * that has to be unpacked into saves/, after which it is an ordinary world that
+	 * diverges the moment anyone plays it. So a world is installed once and then belongs
+	 * to the instance rather than staying something Loadout manages a version of.
+	 */
+	WORLD("world", "saves", 17);
 
 	private final String key;
 	private final String folder;
@@ -50,6 +59,11 @@ public enum ContentType {
 	 */
 	public boolean usesLoader() {
 		return this == MOD;
+	}
+
+	/** Whether installing means unpacking the download rather than placing it. */
+	public boolean isArchive() {
+		return this == WORLD;
 	}
 
 	public static ContentType fromKey(String key) {

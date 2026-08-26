@@ -195,6 +195,9 @@ final class Routes {
 		if (entry.source() != null) {
 			json.addProperty("source", entry.source());
 		}
+		// Always sent, never omitted: the interface decides which list an entry belongs in
+		// from this, and an absent value there silently reads as "mod".
+		json.addProperty("contentType", entry.kind().key());
 		return json;
 	}
 
@@ -255,9 +258,14 @@ final class Routes {
 
 		String versionId = Json.optionalString(body, "versionId", null);
 
+		ContentType kind = ContentType.fromKey(Json.optionalString(body, "type", "mod"));
+		if (kind == null) {
+			throw new ApiException(400, "Unknown content type: " + Json.optionalString(body, "type", ""));
+		}
+
 		String jobId = this.jobs.submit("install", profileName + " / " + id, reporter -> {
 			ModInstaller.Result result = new ModInstaller(this.home).install(
-					profileName, source, id, versionId,
+					profileName, source, id, versionId, kind,
 					(fileName, bytes) -> reporter.log("Downloading " + fileName));
 
 			JsonObject json = Json.object();
@@ -409,6 +417,19 @@ final class Routes {
 			json.addProperty("sizeBytes", pack.sizeBytes());
 			json.addProperty("modifiedAt", pack.modifiedAt());
 			json.addProperty("enabled", pack.enabled());
+			return json;
+		}));
+		return result;
+	}
+
+	JsonObject screenshots(String profileName) throws IOException {
+		JsonObject result = Json.object();
+		result.add("screenshots", Json.arrayOf(contentOf(profileName).screenshots(), shot -> {
+			JsonObject json = Json.object();
+			json.addProperty("name", shot.name());
+			json.addProperty("path", shot.path());
+			json.addProperty("sizeBytes", shot.sizeBytes());
+			json.addProperty("takenAt", shot.takenAt());
 			return json;
 		}));
 		return result;
@@ -838,9 +859,16 @@ final class Routes {
 			throw new ApiException(400, sourceId.displayName() + " is not available");
 		}
 
+		ContentType kind = ContentType.fromKey(query.get("type", "mod"));
+		if (kind == null) {
+			throw new ApiException(400, "Unknown content type: " + query.get("type", ""));
+		}
+
 		java.util.List<dev.loadout.core.source.RemoteFile> files;
 		try {
-			files = source.versions(modId, profile.minecraftVersion(), profile.loader());
+			// Only mods are filtered by loader; for anything else it matches nothing.
+			files = source.versions(modId, profile.minecraftVersion(),
+					kind.usesLoader() ? profile.loader() : null);
 		} catch (InterruptedException e) {
 			Thread.currentThread().interrupt();
 			throw new ApiException(503, "Interrupted while listing versions");

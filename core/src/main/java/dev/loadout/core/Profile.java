@@ -41,11 +41,20 @@ public final class Profile {
 			String projectId,
 			String versionNumber,
 			String modId,
-			String source
+			String source,
+			String contentType
 	) {
+		/** Older profiles have no kind recorded, and everything in them was a mod. */
+		public dev.loadout.core.source.ContentType kind() {
+			var parsed = this.contentType == null
+					? null
+					: dev.loadout.core.source.ContentType.fromKey(this.contentType);
+			return parsed == null ? dev.loadout.core.source.ContentType.MOD : parsed;
+		}
+
 		public Entry withEnabled(boolean value) {
 			return new Entry(this.sha512, this.fileName, value, this.projectId,
-					this.versionNumber, this.modId, this.source);
+					this.versionNumber, this.modId, this.source, this.contentType);
 		}
 
 		public dev.loadout.core.source.SourceId sourceId() {
@@ -122,7 +131,8 @@ public final class Profile {
 		List<Entry> entries = new ArrayList<>(jars.size());
 		for (ModJar jar : jars) {
 			entries.add(new Entry(jar.sha512(), jar.fileName(), jar.enabled(), null,
-					jar.version(), jar.modId(), null));
+					jar.version(), jar.modId(), null,
+					dev.loadout.core.source.ContentType.MOD.key()));
 		}
 		return new Profile(name, minecraftVersion, loader, entries);
 	}

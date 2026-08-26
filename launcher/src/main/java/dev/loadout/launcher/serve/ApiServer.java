@@ -126,6 +126,8 @@ public final class ApiServer {
 				Json.send(exchange, 200, this.routes.servers(path.get("name"))));
 		add("GET", "/profiles/{name}/packs", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.packs(path.get("name"), query)));
+		add("GET", "/profiles/{name}/screenshots", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.screenshots(path.get("name"))));
 		add("GET", "/profiles/{name}/logs", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.logs(path.get("name"))));
 		add("GET", "/profiles/{name}/log", (exchange, path, query) ->

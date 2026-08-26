@@ -42,6 +42,12 @@ public final class ModrinthSource implements ModSource {
 			throws IOException, InterruptedException {
 		ContentType kind = type == null ? ContentType.MOD : type;
 
+		// Modrinth hosts no worlds. Asking for project_type:world returns an error, so the
+		// honest answer is that this source has none rather than that the search failed.
+		if (kind == ContentType.WORLD) {
+			return List.of();
+		}
+
 		// The loader facet is omitted for resource packs and shaders. They work with any
 		// loader, and asking for "fabric" resource packs matches nothing at all.
 		String facets = "[[\"project_type:" + kind.key() + "\"]"
@@ -94,13 +100,20 @@ public final class ModrinthSource implements ModSource {
 	@Override
 	public List<RemoteFile> versions(String modId, String gameVersion, String loader)
 			throws IOException, InterruptedException {
-		String url = API + "/project/" + Http.encode(modId) + "/version"
-				+ "?loaders=" + Http.encode("[\"" + loader + "\"]")
-				+ "&game_versions=" + Http.encode("[\"" + gameVersion + "\"]");
+		// The loader filter is omitted rather than sent empty. A null here previously became
+		// the literal string "null" inside the JSON array, which matched no build at all --
+		// so every resource pack and shader reported as having no version that fits.
+		StringBuilder url = new StringBuilder(API + "/project/" + Http.encode(modId) + "/version?");
+		if (loader != null && !loader.isBlank()) {
+			url.append("loaders=").append(Http.encode("[\"" + loader + "\"]")).append('&');
+		}
+		if (gameVersion != null && !gameVersion.isBlank()) {
+			url.append("game_versions=").append(Http.encode("[\"" + gameVersion + "\"]"));
+		}
 
 		JsonArray versions;
 		try {
-			versions = JsonParser.parseString(this.http.get(url)).getAsJsonArray();
+			versions = JsonParser.parseString(this.http.get(url.toString())).getAsJsonArray();
 		} catch (Http.NotFound e) {
 			return List.of();
 		}

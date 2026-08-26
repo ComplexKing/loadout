@@ -31,18 +31,19 @@ contextBridge.exposeInMainWorld('loadout', {
 	},
 
 	mods: {
-		install: (profile, source, id) => invoke('mods:install', profile, source, id),
+		install: (profile, source, id, type) => invoke('mods:install', profile, source, id, type),
 		remove: (profile, fileName) => invoke('mods:remove', profile, fileName),
 		toggle: (profile, fileName, enabled) => invoke('mods:toggle', profile, fileName, enabled),
 		icons: (profile) => invoke('mods:icons', profile),
-		installVersion: (profile, source, id, versionId) =>
-			invoke('mods:installVersion', profile, source, id, versionId),
+		installVersion: (profile, source, id, versionId, type) =>
+			invoke('mods:installVersion', profile, source, id, versionId, type),
 	},
 
 	instance: {
 		worlds: (profile) => invoke('instance:worlds', profile),
 		servers: (profile) => invoke('instance:servers', profile),
 		logs: (profile) => invoke('instance:logs', profile),
+		screenshots: (profile) => invoke('instance:screenshots', profile),
 		logTail: (profile, log) => invoke('instance:logTail', profile, log),
 		packs: (profile, type) => invoke('instance:packs', profile, type),
 		duplicate: (profile, target) => invoke('instance:duplicate', profile, target),

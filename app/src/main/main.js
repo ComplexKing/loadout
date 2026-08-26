@@ -123,8 +123,8 @@ function registerHandlers() {
 	handle('profiles:delete', (name) =>
 		api.request('DELETE', `/profiles/${encodeURIComponent(name)}`));
 
-	handle('mods:install', (name, source, id) =>
-		api.request('POST', `/profiles/${encodeURIComponent(name)}/mods`, { source, id }));
+	handle('mods:install', (name, source, id, type) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/mods`, { source, id, type }));
 	handle('mods:remove', (name, fileName) =>
 		api.request('DELETE',
 			`/profiles/${encodeURIComponent(name)}/mods/${encodeURIComponent(fileName)}`));
@@ -135,9 +135,9 @@ function registerHandlers() {
 
 	handle('mods:icons', (name) => api.get(`/profiles/${encodeURIComponent(name)}/icons`));
 
-	handle('mods:installVersion', (name, source, id, versionId) =>
+	handle('mods:installVersion', (name, source, id, versionId, type) =>
 		api.request('POST', `/profiles/${encodeURIComponent(name)}/mods`,
-			{ source, id, versionId }));
+			{ source, id, versionId, type }));
 
 	handle('versions', (source, id, profile) => api.get('/versions?'
 		+ new URLSearchParams({ source, id, profile }).toString()));
@@ -166,6 +166,8 @@ function registerHandlers() {
 
 	handle('instance:worlds', (name) => api.get(`/profiles/${encodeURIComponent(name)}/worlds`));
 	handle('instance:servers', (name) => api.get(`/profiles/${encodeURIComponent(name)}/servers`));
+	handle('instance:screenshots', (name) =>
+		api.get(`/profiles/${encodeURIComponent(name)}/screenshots`));
 	handle('instance:logs', (name) => api.get(`/profiles/${encodeURIComponent(name)}/logs`));
 	handle('instance:logTail', (name, log) => api.get(`/profiles/${encodeURIComponent(name)}/log?`
 		+ new URLSearchParams({ name: log }).toString()));

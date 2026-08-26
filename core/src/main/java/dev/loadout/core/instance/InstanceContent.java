@@ -156,6 +156,47 @@ public final class InstanceContent {
 		return List.copyOf(found);
 	}
 
+	// -- screenshots -------------------------------------------------------------------
+
+	/**
+	 * @param name file name
+	 * @param path absolute path, so the interface can show the image itself
+	 * @param sizeBytes size on disk
+	 * @param takenAt epoch millis
+	 */
+	public record Screenshot(String name, String path, long sizeBytes, long takenAt) {
+	}
+
+	/**
+	 * Screenshots the game has taken, newest first.
+	 *
+	 * <p>Worth surfacing because they are the one thing in an instance folder people
+	 * actually want to look at, and the game gives no way to browse them without leaving
+	 * it. Newest first because the reason to open this is almost always the last one.
+	 */
+	public List<Screenshot> screenshots() throws IOException {
+		Path dir = this.root.resolve("screenshots");
+		if (!Files.isDirectory(dir)) {
+			return List.of();
+		}
+
+		List<Screenshot> found = new ArrayList<>();
+		try (Stream<Path> entries = Files.list(dir)) {
+			for (Path file : entries.filter(Files::isRegularFile).toList()) {
+				String name = file.getFileName().toString();
+				String lower = name.toLowerCase();
+				if (!lower.endsWith(".png") && !lower.endsWith(".jpg") && !lower.endsWith(".jpeg")) {
+					continue;
+				}
+				found.add(new Screenshot(name, file.toAbsolutePath().toString(),
+						Files.size(file), Files.getLastModifiedTime(file).toMillis()));
+			}
+		}
+
+		found.sort(Comparator.comparingLong(Screenshot::takenAt).reversed());
+		return List.copyOf(found);
+	}
+
 	// -- logs --------------------------------------------------------------------------
 
 	public List<LogFile> logs() throws IOException {

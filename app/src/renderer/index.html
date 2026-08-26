@@ -9,7 +9,7 @@
 -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none';
-               img-src 'self' https: data:;
+               img-src 'self' https: data: file:;
                style-src 'self' 'unsafe-inline';
                script-src 'self';
                font-src 'self';
@@ -175,6 +175,10 @@
 						<svg class="ico sm"><use href="#i-server"/></svg><span>Servers</span>
 						<span class="subnav-count" id="count-servers"></span>
 					</button>
+					<button class="subnav-item" data-tab="screenshots">
+						<svg class="ico sm"><use href="#i-image"/></svg><span>Screenshots</span>
+						<span class="subnav-count" id="count-screenshots"></span>
+					</button>
 					<button class="subnav-item" data-tab="logs">
 						<svg class="ico sm"><use href="#i-doc"/></svg><span>Logs</span>
 					</button>
@@ -207,12 +211,12 @@
 						<div id="content-body"></div>
 					</div>
 
-					<div class="panel" data-panel="worlds" hidden>
-						<div id="worlds-body" class="rows"></div>
-					</div>
-
 					<div class="panel" data-panel="servers" hidden>
 						<div id="servers-body" class="rows"></div>
+					</div>
+
+					<div class="panel" data-panel="screenshots" hidden>
+						<div id="shots-body" class="shots"></div>
 					</div>
 
 					<div class="panel" data-panel="logs" hidden>
