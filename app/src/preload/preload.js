@@ -39,6 +39,16 @@ contextBridge.exposeInMainWorld('loadout', {
 			invoke('mods:installVersion', profile, source, id, versionId),
 	},
 
+	instance: {
+		worlds: (profile) => invoke('instance:worlds', profile),
+		servers: (profile) => invoke('instance:servers', profile),
+		logs: (profile) => invoke('instance:logs', profile),
+		logTail: (profile, log) => invoke('instance:logTail', profile, log),
+		packs: (profile, type) => invoke('instance:packs', profile, type),
+		duplicate: (profile, target) => invoke('instance:duplicate', profile, target),
+		export: (profile, path, options) => invoke('instance:export', profile, path, options),
+	},
+
 	snapshots: {
 		list: (profile) => invoke('snapshots:list', profile),
 		rollback: (profile, snapshotId) => invoke('snapshots:rollback', profile, snapshotId),
@@ -59,6 +69,7 @@ contextBridge.exposeInMainWorld('loadout', {
 	},
 
 	openExternal: (url) => invoke('open:external', url),
+	openPath: (target) => invoke('open:path', target),
 
 	/**
 	 * Job progress, pushed rather than polled.

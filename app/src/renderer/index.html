@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <!--
-  Mod artwork is hosted by Modrinth and CurseForge, so remote images have to be allowed.
-  Nothing else is. The page talks to the jar through the preload bridge and never over the
+  Artwork is hosted by Modrinth and CurseForge, so remote images have to be allowed.
+  Nothing else is. The page reaches the jar through the preload bridge and never over the
   network itself, so it has no reason to be able to open a connection at all.
 -->
 <meta http-equiv="Content-Security-Policy"
@@ -22,35 +22,64 @@
 <body>
 
 <!-- Icon definitions, referenced by <use> so the same glyph is not repeated per button. -->
-<svg width="0" height="0" style="position:absolute" aria-hidden="true">
-	<defs>
-		<symbol id="i-home" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-			<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
-		</symbol>
-		<symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-			<circle cx="12" cy="12" r="9"/>
-			<path d="m15.5 8.5-2 5-5 2 2-5z"/>
-		</symbol>
-		<symbol id="i-cog" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-			<circle cx="12" cy="12" r="3.2"/>
-			<path d="M12 2.6a2 2 0 0 1 1.9 1.4l.2.7 1.4.6.7-.3a2 2 0 0 1 2.4.8l.5.9a2 2 0 0 1-.4 2.4l-.5.5v1.6l.5.5a2 2 0 0 1 .4 2.4l-.5.9a2 2 0 0 1-2.4.8l-.7-.3-1.4.6-.2.7a2 2 0 0 1-1.9 1.4h-1a2 2 0 0 1-1.9-1.4l-.2-.7-1.4-.6-.7.3a2 2 0 0 1-2.4-.8l-.5-.9a2 2 0 0 1 .4-2.4l.5-.5v-1.6l-.5-.5a2 2 0 0 1-.4-2.4l.5-.9a2 2 0 0 1 2.4-.8l.7.3 1.4-.6.2-.7A2 2 0 0 1 11 2.6z"/>
-		</symbol>
-		<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
-		<symbol id="i-play" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></symbol>
-		<symbol id="i-folder" viewBox="0 0 24 24" fill="currentColor" stroke="none">
-			<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>
-		</symbol>
-		<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-			<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>
-		</symbol>
-		<symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
-			<path d="m6 9 6 6 6-6"/>
-		</symbol>
-		<symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
-			<path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/>
-		</symbol>
-	</defs>
-</svg>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+	<symbol id="i-home" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+		<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
+	</symbol>
+	<symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+		<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5z"/>
+	</symbol>
+	<symbol id="i-cog" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+		<circle cx="12" cy="12" r="3.2"/>
+		<path d="M12 2.6a2 2 0 0 1 1.9 1.4l.2.7 1.4.6.7-.3a2 2 0 0 1 2.4.8l.5.9a2 2 0 0 1-.4 2.4l-.5.5v1.6l.5.5a2 2 0 0 1 .4 2.4l-.5.9a2 2 0 0 1-2.4.8l-.7-.3-1.4.6-.2.7a2 2 0 0 1-1.9 1.4h-1a2 2 0 0 1-1.9-1.4l-.2-.7-1.4-.6-.7.3a2 2 0 0 1-2.4-.8l-.5-.9a2 2 0 0 1 .4-2.4l.5-.5v-1.6l-.5-.5a2 2 0 0 1-.4-2.4l.5-.9a2 2 0 0 1 2.4-.8l.7.3 1.4-.6.2-.7A2 2 0 0 1 11 2.6z"/>
+	</symbol>
+	<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></symbol>
+	<symbol id="i-play" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></symbol>
+	<symbol id="i-folder" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+		<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>
+	</symbol>
+	<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round">
+		<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>
+	</symbol>
+	<symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/>
+	</symbol>
+	<symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></symbol>
+	<symbol id="i-puzzle" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+		<path d="M10 3a2.2 2.2 0 0 1 4 0v1.2h3.3c.6 0 1 .4 1 1V8.5H19a2.2 2.2 0 0 1 0 4h-.7v3.3c0 .6-.4 1-1 1H14V18a2.2 2.2 0 0 1-4 0v-1.2H6.7c-.6 0-1-.4-1-1V12H5a2.2 2.2 0 0 1 0-4h.7V4.2c0-.6.4-1 1-1H10z"/>
+	</symbol>
+	<symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+		<rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="8.5" cy="10" r="1.6" fill="currentColor"/><path d="m4 17 5-4.5 4 3.5 3-2.5 4 3.5"/>
+	</symbol>
+	<symbol id="i-sparkle" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+		<path d="m12 2 2.1 5.6L20 9.7l-5.9 2.1L12 17.4l-2.1-5.6L4 9.7l5.9-2.1z"/><path d="m18.5 15 .9 2.4 2.4.9-2.4.9-.9 2.4-.9-2.4-2.4-.9 2.4-.9z"/>
+	</symbol>
+	<symbol id="i-globe" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+		<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.6 3.8 5.7 3.8 9s-1.3 6.4-3.8 9c-2.5-2.6-3.8-5.7-3.8-9S9.5 5.6 12 3z"/>
+	</symbol>
+	<symbol id="i-server" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+		<rect x="3" y="4" width="18" height="6" rx="1.6"/><rect x="3" y="14" width="18" height="6" rx="1.6"/>
+		<circle cx="7" cy="7" r="1" fill="currentColor"/><circle cx="7" cy="17" r="1" fill="currentColor"/>
+	</symbol>
+	<symbol id="i-doc" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+		<path d="M6 3h8l4 4v14H6z"/><path d="M14 3v4h4M9 12h6M9 16h6"/>
+	</symbol>
+	<symbol id="i-user" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+		<circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0z"/>
+	</symbol>
+	<symbol id="i-brush" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+		<path d="M4 20c3 0 4-1.6 4-4a2.4 2.4 0 1 0-4 4z"/><path d="M8.5 15 19 4.5a1.8 1.8 0 0 0-2.5-2.5L6 12.5"/>
+	</symbol>
+	<symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round">
+		<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>
+	</symbol>
+	<symbol id="i-export" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M12 3v12M8 7l4-4 4 4"/><path d="M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/>
+	</symbol>
+	<symbol id="i-trash" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+		<path d="M4 7h16M9 7V5h6v2M6 7l1 13h10l1-13M10 11v6M14 11v6"/>
+	</symbol>
+</defs></svg>
 
 <header class="titlebar">
 	<div class="titlebar-drag"><span class="wordmark">Loadout</span></div>
@@ -58,8 +87,6 @@
 
 <div class="shell">
 
-	<!-- Icon rail. Modrinth and Prism both put instances one click away at all times;
-	     a nested list you have to navigate back out of makes switching feel like work. -->
 	<nav class="rail">
 		<button class="rail-btn" data-view="home" title="Instances" aria-label="Instances">
 			<svg class="ico"><use href="#i-home"/></svg>
@@ -84,7 +111,7 @@
 	<main class="content">
 
 		<!-- Instances ------------------------------------------------------------- -->
-		<section class="view" data-view="home">
+		<section class="view scroller" data-view="home">
 			<div class="view-head">
 				<div>
 					<h1>Instances</h1>
@@ -100,13 +127,13 @@
 			<div id="home-empty" class="blank" hidden>
 				<div class="blank-art"><svg class="ico xl"><use href="#i-folder"/></svg></div>
 				<h2>No instances yet</h2>
-				<p>An instance is one Minecraft setup — its version, its loader and its mods.</p>
+				<p>An instance is one Minecraft setup — its version, its loader, its mods and its worlds.</p>
 				<button id="blank-new" class="btn primary">Create your first instance</button>
 			</div>
 		</section>
 
 		<!-- One instance ---------------------------------------------------------- -->
-		<section class="view" data-view="instance" hidden>
+		<section class="view instance-view" data-view="instance" hidden>
 			<div class="hero">
 				<div id="hero-icon" class="hero-icon"></div>
 				<div class="hero-text">
@@ -117,96 +144,165 @@
 					<button id="play" class="btn primary lg">
 						<svg class="ico sm"><use href="#i-play"/></svg> Play
 					</button>
-					<button id="instance-delete" class="btn quiet">Delete</button>
+					<button id="open-folder" class="btn icon-only" title="Open folder" aria-label="Open folder">
+						<svg class="ico sm"><use href="#i-folder"/></svg>
+					</button>
 				</div>
 			</div>
 
-			<div class="segmented" role="tablist">
-				<button class="seg active" data-tab="mods" role="tab">Mods</button>
-				<button class="seg" data-tab="add" role="tab">Add content</button>
-				<button class="seg" data-tab="versions" role="tab">Versions</button>
-			</div>
+			<div class="instance-body">
+				<nav class="subnav" id="subnav">
+					<span class="subnav-label">Content</span>
+					<button class="subnav-item active" data-tab="mods">
+						<svg class="ico sm"><use href="#i-puzzle"/></svg><span>Mods</span>
+						<span class="subnav-count" id="count-mods"></span>
+					</button>
+					<button class="subnav-item" data-tab="resourcepack">
+						<svg class="ico sm"><use href="#i-image"/></svg><span>Resource packs</span>
+						<span class="subnav-count" id="count-resourcepack"></span>
+					</button>
+					<button class="subnav-item" data-tab="shader">
+						<svg class="ico sm"><use href="#i-sparkle"/></svg><span>Shaders</span>
+						<span class="subnav-count" id="count-shader"></span>
+					</button>
 
-			<div class="panel" data-panel="mods">
-				<div class="toolbar">
-					<div class="field">
-						<svg class="ico sm"><use href="#i-search"/></svg>
-						<input id="mod-filter" type="search" placeholder="Filter installed mods"
-						       autocomplete="off" spellcheck="false">
+					<span class="subnav-label">Game</span>
+					<button class="subnav-item" data-tab="worlds">
+						<svg class="ico sm"><use href="#i-globe"/></svg><span>Worlds</span>
+						<span class="subnav-count" id="count-worlds"></span>
+					</button>
+					<button class="subnav-item" data-tab="servers">
+						<svg class="ico sm"><use href="#i-server"/></svg><span>Servers</span>
+						<span class="subnav-count" id="count-servers"></span>
+					</button>
+					<button class="subnav-item" data-tab="logs">
+						<svg class="ico sm"><use href="#i-doc"/></svg><span>Logs</span>
+					</button>
+
+					<span class="subnav-label">Instance</span>
+					<button class="subnav-item" data-tab="versions">
+						<svg class="ico sm"><use href="#i-copy"/></svg><span>Versions</span>
+					</button>
+					<button class="subnav-item" data-tab="settings">
+						<svg class="ico sm"><use href="#i-cog"/></svg><span>Settings</span>
+					</button>
+				</nav>
+
+				<div class="instance-panels scroller">
+
+					<div class="panel" data-panel="content">
+						<div class="toolbar">
+							<div class="seg-switch" id="content-mode">
+								<button class="seg-btn active" data-mode="installed">Installed</button>
+								<button class="seg-btn" data-mode="add">Add</button>
+							</div>
+							<div class="field grow">
+								<svg class="ico sm"><use href="#i-search"/></svg>
+								<input id="content-search" type="search" autocomplete="off" spellcheck="false">
+							</div>
+							<div id="content-source"></div>
+							<div id="content-sort"></div>
+						</div>
+						<div id="content-notes"></div>
+						<div id="content-body"></div>
 					</div>
-					<span class="count" id="mod-count"></span>
-				</div>
-				<div id="mod-list" class="rows"></div>
-			</div>
 
-			<div class="panel" data-panel="add" hidden>
-				<div class="toolbar">
-					<div class="field grow">
-						<svg class="ico sm"><use href="#i-search"/></svg>
-						<input id="add-search" type="search" placeholder="Search Modrinth and CurseForge"
-						       autocomplete="off" spellcheck="false">
+					<div class="panel" data-panel="worlds" hidden>
+						<div id="worlds-body" class="rows"></div>
 					</div>
-					<select id="add-source" class="select">
-						<option value="all">All sources</option>
-						<option value="modrinth">Modrinth</option>
-						<option value="curseforge">CurseForge</option>
-					</select>
-					<select id="add-sort" class="select">
-						<option value="RELEVANCE">Relevance</option>
-						<option value="DOWNLOADS">Downloads</option>
-						<option value="UPDATED">Recently updated</option>
-						<option value="NEWEST">Newest</option>
-					</select>
-				</div>
-				<div id="add-notes"></div>
-				<div id="add-results" class="cards"></div>
-			</div>
 
-			<div class="panel" data-panel="versions" hidden>
-				<div class="card-block">
-					<h3>Change Minecraft version</h3>
-					<p class="sub">Loadout checks every mod for a matching build before changing anything,
-						and takes a snapshot first so it can be undone.</p>
-					<div class="inline-form">
-						<input id="mig-target" type="text" placeholder="1.21.4" autocomplete="off">
-						<button id="mig-check" class="btn">Check</button>
-						<button id="mig-apply" class="btn primary" disabled>Apply</button>
+					<div class="panel" data-panel="servers" hidden>
+						<div id="servers-body" class="rows"></div>
 					</div>
-					<div id="mig-result"></div>
-				</div>
 
-				<h3 class="block-heading">History</h3>
-				<div id="snapshots" class="rows"></div>
+					<div class="panel" data-panel="logs" hidden>
+						<div class="log-layout">
+							<div id="logs-list" class="rows tight"></div>
+							<pre id="log-view" class="log-view">Choose a log to read it.</pre>
+						</div>
+					</div>
+
+					<div class="panel" data-panel="versions" hidden>
+						<div class="card-block">
+							<h3>Change Minecraft version</h3>
+							<p class="sub">Every mod is checked for a matching build before anything
+								changes, and a snapshot is taken first so it can be undone.</p>
+							<div class="inline-form">
+								<input id="mig-target" type="text" placeholder="1.21.4" autocomplete="off">
+								<button id="mig-check" class="btn">Check</button>
+								<button id="mig-apply" class="btn primary" disabled>Apply</button>
+							</div>
+							<div id="mig-result"></div>
+						</div>
+
+						<h3 class="block-heading">History</h3>
+						<div id="snapshots" class="rows"></div>
+					</div>
+
+					<div class="panel" data-panel="settings" hidden>
+						<div class="card-block">
+							<h3>Duplicate</h3>
+							<p class="sub">Copies the mod list and configs under a new name. Costs almost
+								nothing on disk, since mods are shared from one store — so it is a cheap way
+								to try a change without risking the instance you actually play.</p>
+							<div class="inline-form">
+								<input id="dup-name" type="text" placeholder="Name for the copy" autocomplete="off">
+								<button id="dup-go" class="btn">
+									<svg class="ico sm"><use href="#i-copy"/></svg> Duplicate
+								</button>
+							</div>
+						</div>
+
+						<div class="card-block">
+							<h3>Export</h3>
+							<p class="sub">Writes a zip containing the mod jars themselves, not just a list
+								of them, so it is useful on a machine that has never seen this one.</p>
+							<div class="checks">
+								<label class="checkbox"><input type="checkbox" id="exp-config" checked><span>Configs</span></label>
+								<label class="checkbox"><input type="checkbox" id="exp-packs"><span>Resource &amp; shader packs</span></label>
+								<label class="checkbox"><input type="checkbox" id="exp-worlds"><span>Worlds</span></label>
+							</div>
+							<div class="inline-form">
+								<input id="exp-path" type="text" placeholder="Where to write the zip" autocomplete="off">
+								<button id="exp-go" class="btn">
+									<svg class="ico sm"><use href="#i-export"/></svg> Export
+								</button>
+							</div>
+						</div>
+
+						<div class="card-block danger-block">
+							<h3>Delete this instance</h3>
+							<p class="sub">The mod files stay in the shared store and the history is kept,
+								so this can be undone until you prune.</p>
+							<button id="instance-delete" class="btn danger">
+								<svg class="ico sm"><use href="#i-trash"/></svg> Delete instance
+							</button>
+						</div>
+					</div>
+
+				</div>
 			</div>
 		</section>
 
 		<!-- Discover -------------------------------------------------------------- -->
-		<section class="view" data-view="browse" hidden>
+		<section class="view scroller" data-view="browse" hidden>
 			<div class="view-head">
 				<div>
 					<h1>Discover</h1>
-					<p class="sub">Search both registries at once. Pick an instance to install into.</p>
+					<p class="sub">Both registries at once. Choose where anything you install should go.</p>
 				</div>
-				<select id="browse-target" class="select"></select>
+				<div id="browse-target"></div>
 			</div>
 
 			<div class="toolbar">
 				<div class="field grow">
 					<svg class="ico sm"><use href="#i-search"/></svg>
-					<input id="browse-search" type="search" placeholder="Search for mods"
+					<input id="browse-search" type="search" placeholder="Search mods, resource packs and shaders"
 					       autocomplete="off" spellcheck="false">
 				</div>
-				<select id="browse-source" class="select">
-					<option value="all">All sources</option>
-					<option value="modrinth">Modrinth</option>
-					<option value="curseforge">CurseForge</option>
-				</select>
-				<select id="browse-sort" class="select">
-					<option value="RELEVANCE">Relevance</option>
-					<option value="DOWNLOADS">Downloads</option>
-					<option value="UPDATED">Recently updated</option>
-					<option value="NEWEST">Newest</option>
-				</select>
+				<div id="browse-type"></div>
+				<div id="browse-source"></div>
+				<div id="browse-sort"></div>
 			</div>
 
 			<div id="browse-notes"></div>
@@ -214,32 +310,107 @@
 		</section>
 
 		<!-- Settings -------------------------------------------------------------- -->
-		<section class="view" data-view="settings" hidden>
-			<div class="view-head"><div><h1>Settings</h1></div></div>
+		<section class="view settings-view" data-view="settings" hidden>
+			<nav class="subnav" id="settings-nav">
+				<span class="subnav-label">Loadout</span>
+				<button class="subnav-item active" data-section="sources">
+					<svg class="ico sm"><use href="#i-compass"/></svg><span>Mod sources</span>
+				</button>
+				<button class="subnav-item" data-section="accounts">
+					<svg class="ico sm"><use href="#i-user"/></svg><span>Accounts</span>
+				</button>
+				<button class="subnav-item" data-section="java">
+					<svg class="ico sm"><use href="#i-cog"/></svg><span>Java</span>
+				</button>
 
-			<div class="card-block">
-				<h3>Mod sources</h3>
-				<div id="sources" class="rows tight"></div>
-				<button id="sources-recheck" class="btn" style="margin-top:12px">Check again</button>
-			</div>
+				<span class="subnav-label">Interface</span>
+				<button class="subnav-item" data-section="appearance">
+					<svg class="ico sm"><use href="#i-brush"/></svg><span>Appearance</span>
+				</button>
+				<button class="subnav-item" data-section="language">
+					<svg class="ico sm"><use href="#i-globe"/></svg><span>Language</span>
+				</button>
 
-			<div class="card-block">
-				<h3>CurseForge API key</h3>
-				<p class="sub">
-					From console.curseforge.com. Checked before it is saved. Paste it here rather than
-					passing it on a command line, where the shell treats the <code>$</code> sections as
-					variables and silently truncates it.
-				</p>
-				<div class="inline-form">
-					<input id="cf-key" type="password" autocomplete="off" placeholder="Paste your key">
-					<button id="cf-save" class="btn primary">Save</button>
-					<button id="cf-clear" class="btn quiet">Clear</button>
+				<span class="subnav-label">About</span>
+				<button class="subnav-item" data-section="about">
+					<svg class="ico sm"><use href="#i-doc"/></svg><span>About</span>
+				</button>
+			</nav>
+
+			<div class="settings-panels scroller">
+
+				<div class="panel" data-section="sources">
+					<h2>Mod sources</h2>
+					<div class="card-block">
+						<h3>Status</h3>
+						<div id="sources" class="rows tight"></div>
+						<button id="sources-recheck" class="btn spaced">Check again</button>
+					</div>
+
+					<div class="card-block">
+						<h3>CurseForge API key</h3>
+						<p class="sub">
+							From console.curseforge.com. Checked before it is saved. Paste it here rather
+							than passing it on a command line, where the shell reads the <code>$</code>
+							sections as variables and silently truncates it.
+						</p>
+						<div class="inline-form">
+							<input id="cf-key" type="password" autocomplete="off" placeholder="Paste your key">
+							<button id="cf-save" class="btn primary">Save</button>
+							<button id="cf-clear" class="btn quiet">Clear</button>
+						</div>
+					</div>
 				</div>
-			</div>
 
-			<div class="card-block">
-				<h3>Java</h3>
-				<div id="javas" class="rows tight"></div>
+				<div class="panel" data-section="accounts" hidden>
+					<h2>Accounts</h2>
+					<div id="accounts-body"></div>
+				</div>
+
+				<div class="panel" data-section="java" hidden>
+					<h2>Java</h2>
+					<div class="card-block">
+						<h3>Installations found</h3>
+						<p class="sub">Loadout picks whichever version a Minecraft release asks for.
+							Nothing here needs configuring unless the one you want is missing.</p>
+						<div id="javas" class="rows tight"></div>
+					</div>
+				</div>
+
+				<div class="panel" data-section="appearance" hidden>
+					<h2>Appearance</h2>
+					<div class="card-block">
+						<h3>Accent colour</h3>
+						<p class="sub">Used for the primary action, the selected instance and progress.</p>
+						<div class="swatches" id="accents"></div>
+					</div>
+
+					<div class="card-block">
+						<h3>Density</h3>
+						<p class="sub">How much room rows and cards take up.</p>
+						<div id="density-choice"></div>
+					</div>
+				</div>
+
+				<div class="panel" data-section="language" hidden>
+					<h2>Language</h2>
+					<div class="card-block">
+						<h3>Interface language</h3>
+						<div id="language-choice"></div>
+						<p class="sub spaced">Only English is written so far. The chooser is here because
+							the strings now live in one place, which is what makes adding a language a
+							translation rather than a rewrite.</p>
+					</div>
+				</div>
+
+				<div class="panel" data-section="about" hidden>
+					<h2>About</h2>
+					<div class="card-block">
+						<h3>Loadout</h3>
+						<div id="about-body" class="rows tight"></div>
+					</div>
+				</div>
+
 			</div>
 		</section>
 
@@ -252,6 +423,7 @@
 		<span id="job-stage" class="job-stage"></span>
 	</div>
 	<div class="job-track"><div id="job-fill" class="job-fill"></div></div>
+	<span id="job-percent" class="job-percent"></span>
 	<button id="job-cancel" class="btn quiet sm">Cancel</button>
 </footer>
 
@@ -262,18 +434,16 @@
 		<h2>New instance</h2>
 
 		<label for="nd-name">Name</label>
-		<input id="nd-name" type="text" autocomplete="off" required maxlength="64"
-		       placeholder="My instance">
+		<input id="nd-name" type="text" autocomplete="off" required maxlength="64" placeholder="My instance">
 
 		<div class="two-up">
 			<div>
 				<label for="nd-version">Minecraft version</label>
 				<div class="combo" id="nd-combo">
 					<input id="nd-version" type="text" autocomplete="off" required
-					       placeholder="Loading\u2026" role="combobox" aria-expanded="false"
+					       placeholder="Loading…" role="combobox" aria-expanded="false"
 					       aria-autocomplete="list" aria-controls="nd-version-list">
-					<button type="button" class="combo-caret" id="nd-caret"
-					        tabindex="-1" aria-label="Show versions">
+					<button type="button" class="combo-caret" id="nd-caret" tabindex="-1" aria-label="Show versions">
 						<svg class="ico sm"><use href="#i-chevron"/></svg>
 					</button>
 					<div class="combo-list" id="nd-version-list" role="listbox" hidden>
@@ -289,12 +459,7 @@
 			</div>
 			<div>
 				<label for="nd-loader">Loader</label>
-				<select id="nd-loader" class="select">
-					<option value="fabric">Fabric</option>
-					<option value="quilt">Quilt</option>
-					<option value="neoforge">NeoForge</option>
-					<option value="forge">Forge</option>
-				</select>
+				<div id="nd-loader-select"></div>
 			</div>
 		</div>
 
@@ -320,7 +485,7 @@
 		<p class="sub" id="confirm-body"></p>
 		<div class="dialog-actions">
 			<button value="cancel" class="btn quiet" formnovalidate>Cancel</button>
-			<button value="ok" class="btn danger">Delete</button>
+			<button value="ok" class="btn danger" id="confirm-ok">Delete</button>
 		</div>
 	</form>
 </dialog>

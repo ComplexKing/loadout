@@ -164,6 +164,19 @@ function registerHandlers() {
 		return api.get(`/search?${params.toString()}`);
 	});
 
+	handle('instance:worlds', (name) => api.get(`/profiles/${encodeURIComponent(name)}/worlds`));
+	handle('instance:servers', (name) => api.get(`/profiles/${encodeURIComponent(name)}/servers`));
+	handle('instance:logs', (name) => api.get(`/profiles/${encodeURIComponent(name)}/logs`));
+	handle('instance:logTail', (name, log) => api.get(`/profiles/${encodeURIComponent(name)}/log?`
+		+ new URLSearchParams({ name: log }).toString()));
+	handle('instance:packs', (name, type) => api.get(`/profiles/${encodeURIComponent(name)}/packs?`
+		+ new URLSearchParams({ type }).toString()));
+
+	handle('instance:duplicate', (name, target) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/duplicate`, { name: target }));
+	handle('instance:export', (name, path, options) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/export`, { path, ...options }));
+
 	handle('java:list', () => api.get('/java'));
 	handle('minecraft:versions', () => api.get('/minecraft/versions'));
 	handle('jobs:list', () => api.get('/jobs'));
@@ -171,6 +184,30 @@ function registerHandlers() {
 
 	// Links are opened here rather than by the page, so the renderer can never hand an
 	// arbitrary scheme to the OS. Only https survives the check.
+	/**
+	 * Reveals a folder in the file manager.
+	 *
+	 * <p>Restricted to paths inside Loadout's own data directory. The renderer supplies the
+	 * path, and openPath on an arbitrary string would hand the page a way to launch
+	 * whatever it liked through the shell.
+	 */
+	ipcMain.handle('open:path', async (_event, target) => {
+		if (typeof target !== 'string' || !target) {
+			return { ok: false, error: 'No path given' };
+		}
+		try {
+			const home = (await api.get('/health')).home;
+			const resolved = path.resolve(target);
+			if (!resolved.startsWith(path.resolve(home))) {
+				return { ok: false, error: 'That path is outside the Loadout folder' };
+			}
+			shell.openPath(resolved);
+			return { ok: true };
+		} catch (error) {
+			return { ok: false, error: error.message };
+		}
+	});
+
 	ipcMain.handle('open:external', (_event, url) => {
 		if (typeof url === 'string' && url.startsWith('https://')) {
 			shell.openExternal(url);
