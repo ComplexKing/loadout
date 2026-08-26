@@ -366,11 +366,11 @@ function debounce(key, fn, wait) {
  * newer one is dropped rather than overwriting fresher results -- the usual way a search
  * box ends up showing answers to a question you already finished typing over.
  */
-async function search({ profileName, query, sort, resultsNode, notesNode }) {
+async function search({ profileName, query, sort, source, resultsNode, notesNode }) {
 	const seq = ++state.searchSeq;
 
 	const data = await call(api.search({
-		q: query, profile: profileName, sort, limit: 40,
+		q: query, profile: profileName, sort, source, limit: 40,
 	}));
 
 	if (seq !== state.searchSeq) return;
@@ -379,13 +379,13 @@ async function search({ profileName, query, sort, resultsNode, notesNode }) {
 	if (!data) {
 		notesNode.appendChild(problemNotice(
 			'Could not reach the mod registries.',
-			() => search({ profileName, query, sort, resultsNode, notesNode })));
+			() => search({ profileName, query, sort, source, resultsNode, notesNode })));
 		return;
 	}
 
 	for (const note of data.notes || []) {
 		notesNode.appendChild(problemNotice(note,
-			() => search({ profileName, query, sort, resultsNode, notesNode })));
+			() => search({ profileName, query, sort, source, resultsNode, notesNode })));
 	}
 
 	clear(resultsNode);
@@ -456,6 +456,12 @@ function modCard(mod, alreadyInstalled, profileName) {
 		actions.appendChild(page);
 	}
 
+	// A split control: the button installs the newest build, the chevron opens the
+	// rest. Making people choose a version every time would be tedious, and never
+	// letting them is the limitation this fixes -- a beta sitting above the last stable
+	// release is common in Minecraft modding, and stepping back has to be possible.
+	const group = el('div', 'split');
+
 	const install = el('button', 'btn primary sm', alreadyInstalled ? 'Installed' : 'Install');
 	install.disabled = alreadyInstalled || !profileName;
 	install.addEventListener('click', async () => {
@@ -469,7 +475,17 @@ function modCard(mod, alreadyInstalled, profileName) {
 		}
 		// Success arrives as a job event, which refreshes the list.
 	});
-	actions.appendChild(install);
+	group.appendChild(install);
+
+	if (profileName) {
+		const more = el('button', 'btn primary sm split-more');
+		more.appendChild(icon('i-chevron', 'ico sm'));
+		more.title = 'Choose a version';
+		more.addEventListener('click', () => openVersions(mod, profileName));
+		group.appendChild(more);
+	}
+
+	actions.appendChild(group);
 	foot.appendChild(actions);
 
 	body.appendChild(foot);
@@ -483,6 +499,7 @@ function runAddSearch() {
 		profileName: state.current.name,
 		query: $('add-search').value.trim(),
 		sort: $('add-sort').value,
+		source: $('add-source').value,
 		resultsNode: $('add-results'),
 		notesNode: $('add-notes'),
 	});
@@ -493,6 +510,7 @@ function runBrowse() {
 		profileName: $('browse-target').value || undefined,
 		query: $('browse-search').value.trim(),
 		sort: $('browse-sort').value,
+		source: $('browse-source').value,
 		resultsNode: $('browse-results'),
 		notesNode: $('browse-notes'),
 	});
@@ -521,6 +539,74 @@ function syncBrowseTargets() {
 	select.value = state.instances.some((i) => i.name === previous)
 		? previous
 		: (state.current?.name || state.instances[0].name);
+}
+
+/**
+ * Lists every build of a mod that fits, and installs the chosen one.
+ *
+ * Scoped to the profile, so what is offered is what will actually run here rather than
+ * everything the registry has ever published.
+ */
+async function openVersions(mod, profileName) {
+	const dialog = $('versions-dialog');
+	const list = $('vd-list');
+
+	$('vd-title').textContent = mod.title;
+	$('vd-sub').textContent = 'Loading builds\u2026';
+	clear(list);
+	dialog.showModal();
+
+	const data = await call(api.versions(mod.source, mod.id, profileName));
+	if (!data) {
+		$('vd-sub').textContent = 'Could not load versions.';
+		return;
+	}
+
+	const instance = state.instances.find((i) => i.name === profileName);
+	$('vd-sub').textContent = data.versions.length === 0
+		? 'No builds for this Minecraft version.'
+		: data.versions.length + ' builds for '
+			+ (instance ? instance.minecraftVersion : 'this instance');
+
+	data.versions.forEach((version, index) => {
+		const row = el('div', 'row');
+		row.style.gridTemplateColumns = 'minmax(0,1fr) auto';
+
+		const body = el('div', 'row-body');
+		body.appendChild(el('div', 'row-title', version.versionNumber || version.fileName));
+		body.appendChild(el('div', 'row-sub',
+			version.fileName + ' \u00b7 ' + (version.fileSize / 1048576).toFixed(2) + ' MB'));
+		row.appendChild(body);
+
+		const actions = el('div', 'row-actions');
+
+		// The first entry is what a plain Install would have picked, and saying so saves
+		// anyone comparing version strings to work out which that was.
+		if (index === 0) {
+			actions.appendChild(el('span', 'pill ok', 'latest'));
+		}
+
+		if (!version.downloadable) {
+			actions.appendChild(el('span', 'pill off', 'not downloadable'));
+		} else {
+			const pick = el('button', 'btn sm', 'Install');
+			pick.addEventListener('click', async () => {
+				pick.disabled = true;
+				const started = await call(
+					api.mods.installVersion(profileName, mod.source, mod.id, version.versionId),
+					'Install failed');
+				if (started) {
+					dialog.close();
+				} else {
+					pick.disabled = false;
+				}
+			});
+			actions.appendChild(pick);
+		}
+
+		row.appendChild(actions);
+		list.appendChild(row);
+	});
 }
 
 /* -- versions ------------------------------------------------------------------------- */
@@ -814,6 +900,11 @@ function wire() {
 		}
 	});
 
+	$('vd-close').addEventListener('click', () => $('versions-dialog').close());
+
+	$('add-source').addEventListener('change', runAddSearch);
+	$('browse-source').addEventListener('change', runBrowse);
+
 	$('sources-recheck').addEventListener('click', renderSources);
 
 	$('cf-save').addEventListener('click', async () => {
@@ -845,9 +936,21 @@ function wire() {
 	api.onReady(start);
 }
 
+/**
+ * First load.
+ *
+ * Guarded because it is reached two ways -- the ready event, and the health check below --
+ * and whichever arrives second would otherwise reload the instance list and send the view
+ * back to home. Harmless at startup, and not harmless at all if someone has already
+ * clicked into an instance by the time it lands.
+ */
+let started = false;
 async function start() {
+	if (started) return;
+	started = true;
+
 	await loadInstances();
-	show(state.instances.length > 0 ? 'home' : 'home');
+	show('home');
 }
 
 wire();

@@ -218,11 +218,18 @@ public final class CurseForgeSource implements ModSource {
 	@Override
 	public Optional<RemoteFile> bestFile(String modId, String gameVersion, String loader)
 			throws IOException, InterruptedException {
+		List<RemoteFile> all = versions(modId, gameVersion, loader);
+		return all.isEmpty() ? Optional.empty() : Optional.of(all.get(0));
+	}
+
+	@Override
+	public List<RemoteFile> versions(String modId, String gameVersion, String loader)
+			throws IOException, InterruptedException {
 		if (!isAvailable()) {
-			return Optional.empty();
+			return List.of();
 		}
 
-		StringBuilder url = new StringBuilder(API + "/mods/" + Http.encode(modId) + "/files?pageSize=20");
+		StringBuilder url = new StringBuilder(API + "/mods/" + Http.encode(modId) + "/files?pageSize=50");
 		if (gameVersion != null && !gameVersion.isBlank()) {
 			url.append("&gameVersion=").append(Http.encode(gameVersion));
 		}
@@ -235,25 +242,41 @@ public final class CurseForgeSource implements ModSource {
 		try {
 			files = this.http.getObject(url.toString()).getAsJsonArray("data");
 		} catch (Http.NotFound e) {
-			return Optional.empty();
+			return List.of();
 		}
 		if (files == null || files.isEmpty()) {
+			return List.of();
+		}
+
+		// CurseForge does not promise an order, and file ids increase monotonically, so
+		// sorting by id descending is what actually puts the newest build first.
+		List<JsonObject> sorted = new ArrayList<>(files.size());
+		for (JsonElement element : files) {
+			sorted.add(element.getAsJsonObject());
+		}
+		sorted.sort((a, b) -> Long.compare(Http.number(b, "id"), Http.number(a, "id")));
+
+		List<RemoteFile> result = new ArrayList<>(sorted.size());
+		for (JsonObject file : sorted) {
+			result.add(toFile(modId, file));
+		}
+		return List.copyOf(result);
+	}
+
+	@Override
+	public Optional<RemoteFile> fileForVersion(String modId, String versionId)
+			throws IOException, InterruptedException {
+		if (!isAvailable()) {
 			return Optional.empty();
 		}
-
-		// Newest first by file id, which increases monotonically.
-		JsonObject newest = null;
-		long best = Long.MIN_VALUE;
-		for (JsonElement element : files) {
-			JsonObject file = element.getAsJsonObject();
-			long id = Http.number(file, "id");
-			if (id > best) {
-				best = id;
-				newest = file;
-			}
+		try {
+			JsonObject data = this.http
+					.getObject(API + "/mods/" + Http.encode(modId) + "/files/" + Http.encode(versionId))
+					.getAsJsonObject("data");
+			return data == null ? Optional.empty() : Optional.of(toFile(modId, data));
+		} catch (Http.NotFound e) {
+			return Optional.empty();
 		}
-
-		return newest == null ? Optional.empty() : Optional.of(toFile(modId, newest));
 	}
 
 	private static RemoteFile toFile(String modId, JsonObject file) {

@@ -131,6 +131,8 @@ public final class ApiServer {
 				Json.send(exchange, 202, this.routes.launch(path.get("name"), Json.readObject(exchange))));
 
 		add("GET", "/search", (exchange, path, query) -> Json.send(exchange, 200, this.routes.search(query)));
+		add("GET", "/versions", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.versions(query)));
 		add("GET", "/java", (exchange, path, query) -> Json.send(exchange, 200, this.routes.javaInstalls()));
 
 		add("GET", "/jobs", (exchange, path, query) -> Json.send(exchange, 200, this.routes.jobs()));

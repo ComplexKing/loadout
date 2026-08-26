@@ -70,6 +70,20 @@ public final class ModInstaller {
 	 */
 	public Result install(String profileName, SourceId sourceId, String modId, Downloader.Progress progress)
 			throws IOException, InterruptedException {
+		return install(profileName, sourceId, modId, null, progress);
+	}
+
+	/**
+	 * Installs a particular build rather than the newest one.
+	 *
+	 * <p>Dependencies still resolve to their newest matching build. Pinning a mod is a
+	 * statement about that mod -- a beta to avoid, a regression to step back from -- and
+	 * says nothing about what its libraries should be.
+	 *
+	 * @param versionId the source's own version id, or null for whatever fits best
+	 */
+	public Result install(String profileName, SourceId sourceId, String modId, String versionId,
+			Downloader.Progress progress) throws IOException, InterruptedException {
 		Profile profile = this.home.loadProfile(profileName);
 		SourceRegistry registry = this.home.sources();
 
@@ -99,12 +113,22 @@ public final class ModInstaller {
 		while (!queue.isEmpty()) {
 			String current = queue.poll();
 
-			if (present.contains(current)) {
+			// Asking for a specific build of the mod you named is a request to change to
+			// that build, so "you already have this mod" is not an answer -- having it at a
+			// different version is the whole reason for the request. Dependencies are still
+			// skipped when present, because nothing was said about them.
+			boolean pinned = versionId != null && current.equals(modId);
+
+			if (!pinned && present.contains(current)) {
 				skipped.add(source.modTitle(current));
 				continue;
 			}
 
-			Optional<RemoteFile> file = source.bestFile(current, profile.minecraftVersion(), profile.loader());
+			// The pinned version applies to the mod that was asked for, never to something
+			// pulled in behind it.
+			Optional<RemoteFile> file = versionId != null && current.equals(modId)
+					? source.fileForVersion(current, versionId)
+					: source.bestFile(current, profile.minecraftVersion(), profile.loader());
 			if (file.isEmpty()) {
 				unavailable.add(source.modTitle(current));
 				continue;
@@ -116,7 +140,7 @@ public final class ModInstaller {
 			// already-installed dependency looks absent, gets resolved again, and is
 			// reported as an upgrade of a mod to itself.
 			String canonical = file.get().modId();
-			if (canonical != null && !canonical.equals(current)) {
+			if (!pinned && canonical != null && !canonical.equals(current)) {
 				if (present.contains(canonical) || toAdd.containsKey(canonical)) {
 					skipped.add(source.modTitle(current));
 					continue;

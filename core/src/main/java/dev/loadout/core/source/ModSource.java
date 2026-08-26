@@ -82,6 +82,33 @@ public interface ModSource {
 			throws IOException, InterruptedException;
 
 	/**
+	 * Every build of a mod that fits, newest first.
+	 *
+	 * <p>{@link #bestFile} answers "what should I install"; this answers "what could I".
+	 * They differ whenever the newest build is not the wanted one -- a beta above the last
+	 * stable release, or a regression someone needs to step back from -- which is common
+	 * enough in Minecraft modding that always taking the top of the list is a real
+	 * limitation rather than a simplification.
+	 */
+	default List<RemoteFile> versions(String modId, String gameVersion, String loader)
+			throws IOException, InterruptedException {
+		return bestFile(modId, gameVersion, loader).map(List::of).orElse(List.of());
+	}
+
+	/**
+	 * One specific build, named by the version id a listing gave.
+	 *
+	 * <p>Looked up rather than carried through from the listing, because the caller that
+	 * chooses a version and the caller that installs it are different requests, and
+	 * trusting an id round-tripped through a client is how one ends up installing whatever
+	 * that client last said.
+	 */
+	default Optional<RemoteFile> fileForVersion(String modId, String versionId)
+			throws IOException, InterruptedException {
+		return Optional.empty();
+	}
+
+	/**
 	 * Artwork for several mods at once, keyed by the id asked for.
 	 *
 	 * <p>Bulk because the caller is an installed-mods list: asking per mod would be one

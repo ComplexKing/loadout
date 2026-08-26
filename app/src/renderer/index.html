@@ -43,6 +43,9 @@
 		<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
 			<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>
 		</symbol>
+		<symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+			<path d="m6 9 6 6 6-6"/>
+		</symbol>
 		<symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
 			<path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/>
 		</symbol>
@@ -143,6 +146,11 @@
 						<input id="add-search" type="search" placeholder="Search Modrinth and CurseForge"
 						       autocomplete="off" spellcheck="false">
 					</div>
+					<select id="add-source" class="select">
+						<option value="all">All sources</option>
+						<option value="modrinth">Modrinth</option>
+						<option value="curseforge">CurseForge</option>
+					</select>
 					<select id="add-sort" class="select">
 						<option value="RELEVANCE">Relevance</option>
 						<option value="DOWNLOADS">Downloads</option>
@@ -188,6 +196,11 @@
 					<input id="browse-search" type="search" placeholder="Search for mods"
 					       autocomplete="off" spellcheck="false">
 				</div>
+				<select id="browse-source" class="select">
+					<option value="all">All sources</option>
+					<option value="modrinth">Modrinth</option>
+					<option value="curseforge">CurseForge</option>
+				</select>
 				<select id="browse-sort" class="select">
 					<option value="RELEVANCE">Relevance</option>
 					<option value="DOWNLOADS">Downloads</option>
@@ -273,6 +286,15 @@
 			<button value="create" class="btn primary">Create</button>
 		</div>
 	</form>
+</dialog>
+
+<dialog id="versions-dialog" class="dialog wide">
+	<h2 id="vd-title">Choose a version</h2>
+	<p class="sub" id="vd-sub"></p>
+	<div id="vd-list" class="rows tight vd-scroll"></div>
+	<div class="dialog-actions">
+		<button id="vd-close" class="btn quiet">Close</button>
+	</div>
 </dialog>
 
 <dialog id="confirm-dialog" class="dialog">

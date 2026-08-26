@@ -56,6 +56,19 @@ button, input, select, textarea {
 }
 
 /*
+ * Focus should be visible when navigating by keyboard and invisible when clicking, which
+ * is exactly what :focus-visible means. The platform default ring is drawn in a colour
+ * that belongs to no part of this interface.
+ */
+:focus { outline: none; }
+
+:focus-visible {
+	outline: 2px solid var(--accent);
+	outline-offset: 2px;
+	border-radius: var(--r-sm);
+}
+
+/*
  * [hidden] is only display:none in the browser's own stylesheet, which any display rule
  * here outranks -- so a flex container stays visible while hidden, drawn on top of
  * whatever replaced it. Restating it with the weight to win is what makes hidden mean it.
@@ -238,7 +251,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .view {
 	flex: 1;
 	overflow-y: auto;
-	padding: 22px 30px 34px;
+	padding: 20px 26px 30px;
 	min-width: 0;
 	display: flex;
 	flex-direction: column;
@@ -270,12 +283,12 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 	background: var(--surface);
 	border: 1px solid var(--line);
 	border-radius: var(--r-lg);
-	padding: 16px;
+	padding: 15px;
 	cursor: pointer;
 	text-align: left;
 	display: flex;
 	flex-direction: column;
-	gap: 12px;
+	gap: 11px;
 	transition: transform 160ms var(--ease), border-color 160ms var(--ease),
 	            background 160ms var(--ease);
 }
@@ -303,9 +316,12 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 
 .instance-sub {
 	font-size: 12.5px;
+	line-height: 1.42;
 	color: var(--text-3);
 	white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
+
+.instance-name { margin-bottom: 1px; }
 
 /* -- hero ---------------------------------------------------------------------------- */
 
@@ -317,7 +333,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 	background: var(--surface);
 	border: 1px solid var(--line);
 	border-radius: var(--r-lg);
-	margin-bottom: 18px;
+	margin-bottom: 20px;
 	flex: none;
 }
 
@@ -379,9 +395,10 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .toolbar {
 	display: flex;
 	align-items: center;
-	gap: 10px;
+	gap: 9px;
 	margin-bottom: 14px;
 	flex: none;
+	flex-wrap: wrap;
 }
 
 .field {
@@ -478,7 +495,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 /* -- rows (installed mods, snapshots, settings lists) -------------------------------- */
 
 .rows { display: flex; flex-direction: column; gap: 7px; }
-.rows.tight { gap: 4px; }
+.rows.tight { gap: 5px; }
 
 .row {
 	display: grid;
@@ -487,7 +504,7 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 	grid-template-columns: 40px minmax(0, 1fr) auto;
 	gap: 13px;
 	align-items: center;
-	padding: 10px 13px;
+	padding: 11px 14px;
 	background: var(--surface);
 	border: 1px solid var(--line);
 	border-radius: var(--r);
@@ -524,8 +541,9 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 .card {
 	display: grid;
 	grid-template-columns: 52px minmax(0, 1fr);
-	gap: 13px;
-	padding: 14px;
+	gap: 14px;
+	align-items: start;
+	padding: 15px 16px;
 	background: var(--surface);
 	border: 1px solid var(--line);
 	border-radius: var(--r);
@@ -580,9 +598,30 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 
 .card-actions {
 	display: flex;
+	align-items: center;
 	gap: 6px;
 	margin-left: auto;
 	flex: none;
+}
+
+/*
+ * Install and its version chevron read as one control, so they sit flush with a hairline
+ * between them rather than as two buttons that happen to be adjacent. The divider is a
+ * border on the second half, which keeps both halves the same height whatever the text.
+ */
+.split { display: flex; }
+
+.split > .btn:first-child {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+}
+
+.split-more {
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	border-left: 1px solid rgba(0, 0, 0, 0.22);
+	padding-left: 7px;
+	padding-right: 7px;
 }
 
 /* -- artwork ------------------------------------------------------------------------- */
@@ -808,6 +847,10 @@ img.art { color: transparent; }
 /* -- dialogs ------------------------------------------------------------------------- */
 
 .dialog {
+	/* The universal margin reset above also removes dialog's own margin:auto, which is
+	   what centres a modal in the viewport -- without this it renders in the top-left
+	   corner and hangs off the edge. */
+	margin: auto;
 	background: var(--surface);
 	border: 1px solid var(--line-2);
 	border-radius: var(--r-lg);
@@ -845,6 +888,19 @@ img.art { color: transparent; }
 .dialog input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 
 .two-up { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+.dialog.wide { width: 560px; }
+
+/* Capped so a mod with ninety builds does not produce a dialog taller than the window. */
+.vd-scroll {
+	max-height: 46vh;
+	overflow-y: auto;
+	overscroll-behavior: contain;
+	margin-top: 14px;
+	/* Always reserved, so rows do not resize the moment the list grows past the cap. */
+	scrollbar-gutter: stable;
+	padding-right: 6px;
+}
 
 .dialog-actions {
 	display: flex;

@@ -56,12 +56,26 @@ public final class SourceRegistry {
 	 */
 	public Merged search(String query, String gameVersion, String loader,
 			ModSource.SortOrder sort, int limit) {
+		return search(query, gameVersion, loader, sort, limit, null);
+	}
+
+	/**
+	 * @param only restrict to one source, or null for all of them. Narrowing to a single
+	 *     registry is worth offering because the two differ in ways that matter to a
+	 *     person: only Modrinth files carry the hashes migration depends on, and only
+	 *     CurseForge hosts mods whose authors forbid third-party downloads.
+	 */
+	public Merged search(String query, String gameVersion, String loader,
+			ModSource.SortOrder sort, int limit, SourceId only) {
 		// Kept per source rather than pooled, because each source has already ranked its own
 		// results and that ranking is the thing worth preserving.
 		List<List<RemoteMod>> perSource = new ArrayList<>();
 		List<String> problems = new ArrayList<>();
 
 		for (ModSource source : available()) {
+			if (only != null && source.id() != only) {
+				continue;
+			}
 			try {
 				perSource.add(source.search(query, gameVersion, loader, sort, limit, 0));
 			} catch (IOException | InterruptedException e) {
@@ -73,7 +87,9 @@ public final class SourceRegistry {
 		}
 
 		for (ModSource source : unavailable()) {
-			problems.add(source.id().displayName() + ": " + source.unavailableReason());
+			if (only == null || source.id() == only) {
+				problems.add(source.id().displayName() + ": " + source.unavailableReason());
+			}
 		}
 
 		return new Merged(merge(perSource, sort), List.copyOf(problems));

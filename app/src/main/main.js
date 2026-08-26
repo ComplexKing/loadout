@@ -32,6 +32,10 @@ function createWindow() {
 			nodeIntegration: false,
 			sandbox: true,
 			webviewTag: false,
+			// Chromium stops compositing a window it considers background, which for a
+			// launcher is precisely when it has work to show: the game has focus, and the
+			// download progress behind it would sit frozen until someone clicked back.
+			backgroundThrottling: false,
 		},
 	});
 
@@ -122,6 +126,13 @@ function registerHandlers() {
 
 	handle('mods:icons', (name) => api.get(`/profiles/${encodeURIComponent(name)}/icons`));
 
+	handle('mods:installVersion', (name, source, id, versionId) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/mods`,
+			{ source, id, versionId }));
+
+	handle('versions', (source, id, profile) => api.get('/versions?'
+		+ new URLSearchParams({ source, id, profile }).toString()));
+
 	handle('snapshots:list', (name) =>
 		api.get(`/profiles/${encodeURIComponent(name)}/snapshots`));
 	handle('snapshots:rollback', (name, snapshotId) =>
@@ -183,21 +194,31 @@ async function screenshotAndQuit(target) {
 	const run = (js) => window.webContents.executeJavaScript(js);
 	const settle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
+	// Matched in JavaScript rather than built into a selector string: an instance name can
+	// contain spaces and quotes, which makes an attribute selector a parse error.
+	const pick = (selector, value) => run(`(() => {
+		const found = [...document.querySelectorAll(${JSON.stringify(selector)})]
+			.find((node) => node.dataset.name === ${JSON.stringify(value)}
+				|| node.dataset.view === ${JSON.stringify(value)}
+				|| node.dataset.tab === ${JSON.stringify(value)});
+		if (found) { found.click(); }
+	})()`);
+
 	const open = argOf('open');
 	if (open) {
-		await run(`document.querySelector('.rail-tile[data-name=' + ${JSON.stringify(open)} + ']').click()`);
+		await pick('.rail-tile', open);
 		await settle(900);
 	}
 
 	const view = argOf('view');
 	if (view) {
-		await run(`document.querySelector('.rail-btn[data-view=' + ${JSON.stringify(view)} + ']').click()`);
+		await pick('.rail-btn[data-view]', view);
 		await settle(600);
 	}
 
 	const tab = argOf('tab');
 	if (tab) {
-		await run(`document.querySelector('.seg[data-tab=' + ${JSON.stringify(tab)} + ']').click()`);
+		await pick('.seg', tab);
 		await settle(600);
 	}
 
@@ -215,6 +236,14 @@ async function screenshotAndQuit(target) {
 	// Long enough for two registries to answer and their artwork to arrive.
 	if (query || tab || view || open) {
 		await settle(4200);
+	}
+
+	// A last click once everything has settled, for states that only exist after the page
+	// has data -- a dialog opened from a search result, say.
+	const click = argOf('click');
+	if (click) {
+		await run(`document.querySelector(${JSON.stringify(click)})?.click()`);
+		await settle(2600);
 	}
 
 	const image = await window.webContents.capturePage();

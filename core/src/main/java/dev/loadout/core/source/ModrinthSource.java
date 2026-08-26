@@ -74,6 +74,14 @@ public final class ModrinthSource implements ModSource {
 	@Override
 	public Optional<RemoteFile> bestFile(String modId, String gameVersion, String loader)
 			throws IOException, InterruptedException {
+		// Modrinth returns newest first, so the best build is the first that fits.
+		List<RemoteFile> all = versions(modId, gameVersion, loader);
+		return all.isEmpty() ? Optional.empty() : Optional.of(all.get(0));
+	}
+
+	@Override
+	public List<RemoteFile> versions(String modId, String gameVersion, String loader)
+			throws IOException, InterruptedException {
 		String url = API + "/project/" + Http.encode(modId) + "/version"
 				+ "?loaders=" + Http.encode("[\"" + loader + "\"]")
 				+ "&game_versions=" + Http.encode("[\"" + gameVersion + "\"]");
@@ -82,14 +90,25 @@ public final class ModrinthSource implements ModSource {
 		try {
 			versions = JsonParser.parseString(this.http.get(url)).getAsJsonArray();
 		} catch (Http.NotFound e) {
-			return Optional.empty();
-		}
-		if (versions.isEmpty()) {
-			return Optional.empty();
+			return List.of();
 		}
 
-		// Modrinth returns newest first.
-		return Optional.of(toFile(versions.get(0).getAsJsonObject()));
+		List<RemoteFile> files = new ArrayList<>(versions.size());
+		for (JsonElement element : versions) {
+			files.add(toFile(element.getAsJsonObject()));
+		}
+		return List.copyOf(files);
+	}
+
+	@Override
+	public Optional<RemoteFile> fileForVersion(String modId, String versionId)
+			throws IOException, InterruptedException {
+		try {
+			JsonObject version = this.http.getObject(API + "/version/" + Http.encode(versionId));
+			return Optional.of(toFile(version));
+		} catch (Http.NotFound e) {
+			return Optional.empty();
+		}
 	}
 
 	private static RemoteFile toFile(JsonObject version) {

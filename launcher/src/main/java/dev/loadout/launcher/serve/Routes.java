@@ -249,9 +249,11 @@ final class Routes {
 			throw new ApiException(400, "Unknown source: " + sourceKey);
 		}
 
+		String versionId = Json.optionalString(body, "versionId", null);
+
 		String jobId = this.jobs.submit("install", profileName + " / " + id, reporter -> {
 			ModInstaller.Result result = new ModInstaller(this.home).install(
-					profileName, source, id,
+					profileName, source, id, versionId,
 					(fileName, bytes) -> reporter.log("Downloading " + fileName));
 
 			JsonObject json = Json.object();
@@ -535,6 +537,48 @@ final class Routes {
 		return result;
 	}
 
+	/**
+	 * Every build of one mod that fits a profile, newest first.
+	 *
+	 * <p>Scoped to a profile rather than listing everything, because "which versions exist"
+	 * is never really the question -- "which can I install here" is, and a list including
+	 * builds for the wrong Minecraft version is a list of things that will not work.
+	 */
+	JsonObject versions(ApiServer.Query query) throws IOException {
+		SourceId sourceId = SourceId.fromKey(query.require("source"));
+		if (sourceId == null) {
+			throw new ApiException(400, "Unknown source: " + query.require("source"));
+		}
+
+		String modId = query.require("id");
+		Profile profile = require(query.require("profile"));
+
+		ModSource source = this.home.sources().get(sourceId);
+		if (source == null || !source.isAvailable()) {
+			throw new ApiException(400, sourceId.displayName() + " is not available");
+		}
+
+		java.util.List<dev.loadout.core.source.RemoteFile> files;
+		try {
+			files = source.versions(modId, profile.minecraftVersion(), profile.loader());
+		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
+			throw new ApiException(503, "Interrupted while listing versions");
+		}
+
+		JsonObject result = Json.object();
+		result.add("versions", Json.arrayOf(files, file -> {
+			JsonObject json = Json.object();
+			json.addProperty("versionId", file.versionId());
+			json.addProperty("versionNumber", file.versionNumber());
+			json.addProperty("fileName", file.fileName());
+			json.addProperty("fileSize", file.fileSize());
+			json.addProperty("downloadable", file.isDownloadable());
+			return json;
+		}));
+		return result;
+	}
+
 	// -- search ----------------------------------------------------------------------
 
 	/**
@@ -560,8 +604,17 @@ final class Routes {
 		ModSource.SortOrder sort = sortOrder(query.get("sort", null), text);
 		int limit = Math.min(query.getInt("limit", 30), 100);
 
+		String sourceKey = query.get("source", null);
+		SourceId only = null;
+		if (sourceKey != null && !sourceKey.equalsIgnoreCase("all")) {
+			only = SourceId.fromKey(sourceKey);
+			if (only == null) {
+				throw new ApiException(400, "Unknown source: " + sourceKey);
+			}
+		}
+
 		SourceRegistry.Merged merged =
-				this.home.sources().search(text, gameVersion, loader, sort, limit);
+				this.home.sources().search(text, gameVersion, loader, sort, limit, only);
 
 		JsonObject result = Json.object();
 		result.add("results", Json.arrayOf(merged.results(), Routes::remoteModJson));

@@ -35,6 +35,8 @@ contextBridge.exposeInMainWorld('loadout', {
 		remove: (profile, fileName) => invoke('mods:remove', profile, fileName),
 		toggle: (profile, fileName, enabled) => invoke('mods:toggle', profile, fileName, enabled),
 		icons: (profile) => invoke('mods:icons', profile),
+		installVersion: (profile, source, id, versionId) =>
+			invoke('mods:installVersion', profile, source, id, versionId),
 	},
 
 	snapshots: {
@@ -47,6 +49,7 @@ contextBridge.exposeInMainWorld('loadout', {
 
 	launch: (profile, username) => invoke('launch', profile, username),
 	search: (query) => invoke('search', query),
+	versions: (source, id, profile) => invoke('versions', source, id, profile),
 	java: () => invoke('java:list'),
 
 	jobs: {
