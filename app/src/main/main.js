@@ -39,7 +39,16 @@ function createWindow() {
 		},
 	});
 
-	window.once('ready-to-show', () => window.show());
+	// A screenshot run must never put a window on screen. It is used while the machine is
+	// being used for something else -- often the game this launcher exists to start -- and
+	// a window appearing and stealing focus mid-session is unacceptable. The page still
+	// renders and composites offscreen, which is what capturePage needs; background
+	// throttling is already disabled above, which is what makes that reliable.
+	const offscreen = process.argv.some((arg) => arg.startsWith('--screenshot='));
+	if (!offscreen) {
+		window.once('ready-to-show', () => window.show());
+	}
+
 	window.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
 
 	// The jar and the page start at the same time and either can win. Announcing on both
@@ -258,10 +267,21 @@ async function screenshotAndQuit(target) {
 	}
 
 	// Arbitrary page script, for driving states no sequence of clicks reaches -- filling a
-	// form, say. Development only: it runs before the capture and its result is logged.
-	const evaluate = argOf('eval');
+	// form, say. --eval-file avoids passing a whole script through argv, where shell
+	// quoting mangles anything with newlines or nested quotes; --report writes the result
+	// to a file rather than making it survive a pipeline.
+	const evaluate = argOf('eval')
+		|| (argOf('eval-file') ? require('node:fs').readFileSync(argOf('eval-file'), 'utf8') : null);
+
 	if (evaluate) {
-		console.log('[harness] eval', JSON.stringify(await run(evaluate)));
+		const result = await run(evaluate);
+		const report = argOf('report');
+		if (report) {
+			require('node:fs').writeFileSync(report, JSON.stringify(result, null, 2));
+			console.log(`[harness] report written to ${report}`);
+		} else {
+			console.log('[harness] eval', JSON.stringify(result));
+		}
 		await settle(1800);
 	}
 

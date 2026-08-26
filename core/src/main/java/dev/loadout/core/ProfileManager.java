@@ -196,6 +196,96 @@ public final class ProfileManager {
 	 *
 	 * @return how many files were copied
 	 */
+	/**
+	 * Copies a profile under a new name.
+	 *
+	 * <p>Costs almost nothing on disk. Mods live in the content store and are hard linked
+	 * into each instance, so a copy of a four hundred megabyte modpack adds four hundred
+	 * links -- which is the point of the store, and what makes "try a change without
+	 * risking the instance I play" a reasonable thing to do.
+	 *
+	 * <p>Configs are copied properly, because those are the part someone would edit and
+	 * would not want shared between the original and the copy.
+	 */
+	public Profile duplicate(String fromName, String toName) throws IOException {
+		LoadoutHome.requireValidName(toName);
+
+		if (this.home.exists(toName)) {
+			throw new IOException("A profile called '" + toName + "' already exists");
+		}
+
+		Profile source = this.home.loadProfile(fromName);
+		Profile copy = new Profile(toName, source.minecraftVersion(), source.loader(), source.mods());
+
+		this.home.saveProfile(copy);
+		materialise(copy);
+		syncSettings(fromName, toName, true);
+
+		// Worlds and server lists are deliberately not copied. A duplicate is usually made
+		// to test a change to the mods, and silently cloning tens of gigabytes of worlds
+		// would be a surprise both on disk and in how long it took.
+		return copy;
+	}
+
+	/**
+	 * Writes the instance to a zip.
+	 *
+	 * <p>Includes profile.json, so importing it back knows the Minecraft version, loader
+	 * and exact mod versions. Mod jars are included too rather than only their hashes:
+	 * an export that needs the original machine's content store to be useful is not an
+	 * export.
+	 *
+	 * @param include extra folders to carry along, e.g. "config", "resourcepacks"
+	 * @return how many files were written
+	 */
+	public int export(String profileName, Path zipFile, Set<String> include) throws IOException {
+		Path instance = this.home.profileDir(profileName);
+		if (!Files.isDirectory(instance)) {
+			throw new IOException("No profile called '" + profileName + "'");
+		}
+
+		Files.createDirectories(zipFile.toAbsolutePath().getParent());
+		int written = 0;
+
+		try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(
+				Files.newOutputStream(zipFile))) {
+
+			written += addToZip(zip, instance.resolve("profile.json"), "profile.json");
+
+			for (String folder : include) {
+				Path dir = instance.resolve(folder);
+				if (!Files.isDirectory(dir)) {
+					continue;
+				}
+				try (Stream<Path> files = Files.walk(dir)) {
+					for (Path file : files.filter(Files::isRegularFile).toList()) {
+						// Built from path elements rather than by replacing separators: a zip
+						// entry name is not an OS path, and hardcoding either separator makes
+						// this wrong on one platform or the other.
+						StringBuilder name = new StringBuilder(folder);
+						for (Path part : dir.relativize(file)) {
+							name.append('/').append(part);
+						}
+						written += addToZip(zip, file, name.toString());
+					}
+				}
+			}
+		}
+
+		return written;
+	}
+
+	private static int addToZip(java.util.zip.ZipOutputStream zip, Path file, String name)
+			throws IOException {
+		if (!Files.isRegularFile(file)) {
+			return 0;
+		}
+		zip.putNextEntry(new java.util.zip.ZipEntry(name));
+		Files.copy(file, zip);
+		zip.closeEntry();
+		return 1;
+	}
+
 	public int syncSettings(String fromProfile, String toProfile, boolean overwrite) throws IOException {
 		Path source = this.home.configDir(fromProfile);
 		Path destination = this.home.configDir(toProfile);

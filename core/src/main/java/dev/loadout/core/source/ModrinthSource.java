@@ -33,9 +33,21 @@ public final class ModrinthSource implements ModSource {
 	@Override
 	public List<RemoteMod> search(String query, String gameVersion, String loader,
 			SortOrder sort, int limit, int offset) throws IOException, InterruptedException {
-		String facets = "[[\"project_type:mod\"]"
+		return search(query, gameVersion, loader, sort, limit, offset, ContentType.MOD);
+	}
+
+	@Override
+	public List<RemoteMod> search(String query, String gameVersion, String loader,
+			SortOrder sort, int limit, int offset, ContentType type)
+			throws IOException, InterruptedException {
+		ContentType kind = type == null ? ContentType.MOD : type;
+
+		// The loader facet is omitted for resource packs and shaders. They work with any
+		// loader, and asking for "fabric" resource packs matches nothing at all.
+		String facets = "[[\"project_type:" + kind.key() + "\"]"
 				+ ",[\"versions:" + gameVersion + "\"]"
-				+ ",[\"categories:" + loader + "\"]]";
+				+ (kind.usesLoader() ? ",[\"categories:" + loader + "\"]" : "")
+				+ "]";
 
 		StringBuilder url = new StringBuilder(API + "/search?limit=" + limit + "&offset=" + offset)
 				.append("&index=").append(Http.encode(indexFor(sort)))

@@ -215,12 +215,14 @@ code { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-siz
 	align-items: center;
 	gap: 6px;
 	overflow-y: auto;
-	overflow-x: hidden;
+	/* Setting overflow-y to auto makes overflow-x compute to hidden whatever is written
+	   here, so the selected tile's ring is clipped unless there is room inside the box for
+	   it. The padding is that room: 4px of ring plus a little air. */
 	min-height: 0;
 	/* The scrollbar would otherwise sit over the tiles in a 68px column. */
 	scrollbar-width: none;
 	width: 100%;
-	padding: 2px 0;
+	padding: 4px 7px;
 }
 
 .rail-instances::-webkit-scrollbar { display: none; }

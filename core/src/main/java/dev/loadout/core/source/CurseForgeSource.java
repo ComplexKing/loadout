@@ -133,12 +133,21 @@ public final class CurseForgeSource implements ModSource {
 	@Override
 	public List<RemoteMod> search(String query, String gameVersion, String loader,
 			SortOrder sort, int limit, int offset) throws IOException, InterruptedException {
+		return search(query, gameVersion, loader, sort, limit, offset, ContentType.MOD);
+	}
+
+	@Override
+	public List<RemoteMod> search(String query, String gameVersion, String loader,
+			SortOrder sort, int limit, int offset, ContentType type)
+			throws IOException, InterruptedException {
 		if (!isAvailable()) {
 			return List.of();
 		}
 
+		ContentType kind = type == null ? ContentType.MOD : type;
+
 		StringBuilder url = new StringBuilder(API + "/mods/search?gameId=" + MINECRAFT)
-				.append("&classId=").append(MOD_CLASS)
+				.append("&classId=").append(kind.curseForgeClassId())
 				.append("&pageSize=").append(limit)
 				.append("&index=").append(offset)
 				.append("&sortField=").append(sortField(sort))
@@ -147,7 +156,7 @@ public final class CurseForgeSource implements ModSource {
 		if (gameVersion != null && !gameVersion.isBlank()) {
 			url.append("&gameVersion=").append(Http.encode(gameVersion));
 		}
-		int modLoader = loaderId(loader);
+		int modLoader = kind.usesLoader() ? loaderId(loader) : 0;
 		if (modLoader > 0) {
 			url.append("&modLoaderType=").append(modLoader);
 		}

@@ -126,6 +126,21 @@ public interface ModSource {
 	/** A mod's display name, for reporting what a dependency actually is. */
 	String modTitle(String modId) throws IOException, InterruptedException;
 
+	/**
+	 * Searches for something other than mods.
+	 *
+	 * <p>Defaulting to the mod search keeps every existing implementation valid; a source
+	 * that only carries mods simply returns nothing for the other kinds rather than having
+	 * to know they exist.
+	 */
+	default List<RemoteMod> search(String query, String gameVersion, String loader,
+			SortOrder sort, int limit, int offset, ContentType type)
+			throws IOException, InterruptedException {
+		return type == null || type == ContentType.MOD
+				? search(query, gameVersion, loader, sort, limit, offset)
+				: List.of();
+	}
+
 	/** Sort orders every source is expected to approximate. */
 	enum SortOrder {
 		RELEVANCE,

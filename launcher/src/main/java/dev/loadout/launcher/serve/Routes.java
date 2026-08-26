@@ -15,6 +15,8 @@ import dev.loadout.core.Snapshot;
 import dev.loadout.core.auth.AccountStore;
 import dev.loadout.core.auth.StoredAccount;
 import dev.loadout.core.browse.ModInstaller;
+import dev.loadout.core.instance.InstanceContent;
+import dev.loadout.core.source.ContentType;
 import dev.loadout.core.launch.GameInstaller;
 import dev.loadout.core.launch.GameSession;
 import dev.loadout.core.launch.JavaLocator;
@@ -353,6 +355,151 @@ final class Routes {
 		return result;
 	}
 
+	// -- instance contents -----------------------------------------------------------
+
+	/**
+	 * Everything in the instance folder that is not a mod.
+	 *
+	 * <p>Read from disk on every call rather than from Loadout's own records, so a world
+	 * the game created a minute ago is simply there. A launcher whose world list disagrees
+	 * with the game's is worse than one that has no world list.
+	 */
+	private InstanceContent contentOf(String profileName) throws IOException {
+		require(profileName);
+		return new InstanceContent(this.home.profileDir(profileName));
+	}
+
+	JsonObject worlds(String profileName) throws IOException {
+		JsonObject result = Json.object();
+		result.add("worlds", Json.arrayOf(contentOf(profileName).worlds(), world -> {
+			JsonObject json = Json.object();
+			json.addProperty("folder", world.folder());
+			json.addProperty("name", world.name());
+			json.addProperty("lastPlayed", world.lastPlayed());
+			json.addProperty("sizeBytes", world.sizeBytes());
+			return json;
+		}));
+		return result;
+	}
+
+	JsonObject servers(String profileName) throws IOException {
+		JsonObject result = Json.object();
+		result.add("servers", Json.arrayOf(contentOf(profileName).servers(), server -> {
+			JsonObject json = Json.object();
+			json.addProperty("name", server.name());
+			json.addProperty("address", server.address());
+			return json;
+		}));
+		return result;
+	}
+
+	JsonObject packs(String profileName, ApiServer.Query query) throws IOException {
+		String kind = query.get("type", "resourcepack");
+		InstanceContent content = contentOf(profileName);
+
+		java.util.List<InstanceContent.Pack> packs = "shader".equals(kind)
+				? content.shaderPacks()
+				: content.resourcePacks();
+
+		JsonObject result = Json.object();
+		result.add("packs", Json.arrayOf(packs, pack -> {
+			JsonObject json = Json.object();
+			json.addProperty("name", pack.name());
+			json.addProperty("sizeBytes", pack.sizeBytes());
+			json.addProperty("modifiedAt", pack.modifiedAt());
+			json.addProperty("enabled", pack.enabled());
+			return json;
+		}));
+		return result;
+	}
+
+	JsonObject logs(String profileName) throws IOException {
+		JsonObject result = Json.object();
+		result.add("logs", Json.arrayOf(contentOf(profileName).logs(), log -> {
+			JsonObject json = Json.object();
+			json.addProperty("name", log.name());
+			json.addProperty("sizeBytes", log.sizeBytes());
+			json.addProperty("modifiedAt", log.modifiedAt());
+			return json;
+		}));
+		return result;
+	}
+
+	/**
+	 * The end of a log file.
+	 *
+	 * <p>The tail rather than the whole thing: a crash log runs to tens of megabytes and
+	 * the part anyone needs is always the last screenful.
+	 */
+	JsonObject logTail(String profileName, ApiServer.Query query) throws IOException {
+		String name = query.require("name");
+		int bytes = Math.min(query.getInt("bytes", 120_000), 1_000_000);
+
+		JsonObject result = Json.object();
+		result.addProperty("name", name);
+		result.addProperty("text", contentOf(profileName).logTail(name, bytes));
+		return result;
+	}
+
+	// -- instance actions ------------------------------------------------------------
+
+	JsonObject duplicate(String profileName, JsonObject body) throws IOException {
+		require(profileName);
+		String target = Json.requireString(body, "name");
+
+		// Checked here so the answer is a conflict rather than the generic failure an
+		// IOException from deeper down would become.
+		if (this.home.exists(target)) {
+			throw new ApiException(409, "A profile called '" + target + "' already exists");
+		}
+
+		try {
+			Profile copy = this.profiles.duplicate(profileName, target);
+
+			JsonObject result = Json.object();
+			result.addProperty("name", copy.name());
+			result.addProperty("modCount", copy.mods().size());
+			return result;
+		} catch (IllegalArgumentException e) {
+			throw new ApiException(400, e.getMessage());
+		}
+	}
+
+	/**
+	 * Writes the instance to a zip the caller names.
+	 *
+	 * <p>Runs as a job: a modpack export is hundreds of megabytes of copying, and holding
+	 * a request open for it would tie the result to one connection.
+	 */
+	JsonObject export(String profileName, JsonObject body) throws IOException {
+		require(profileName);
+
+		String destination = Json.requireString(body, "path");
+		java.util.Set<String> include = new java.util.LinkedHashSet<>(java.util.List.of("mods"));
+		if (Json.optionalBoolean(body, "includeConfig", true)) {
+			include.add("config");
+		}
+		if (Json.optionalBoolean(body, "includePacks", false)) {
+			include.add("resourcepacks");
+			include.add("shaderpacks");
+		}
+		if (Json.optionalBoolean(body, "includeWorlds", false)) {
+			include.add("saves");
+		}
+
+		String jobId = this.jobs.submit("export", profileName, reporter -> {
+			reporter.progress("Writing " + destination, 0, 0);
+			int written = this.profiles.export(profileName, java.nio.file.Path.of(destination), include);
+
+			JsonObject json = Json.object();
+			json.addProperty("path", destination);
+			json.addProperty("files", written);
+			return json;
+		});
+
+		return jobRef(jobId);
+	}
+
 	// -- snapshots -------------------------------------------------------------------
 
 	JsonObject snapshots(String profileName) throws IOException {
@@ -638,6 +785,11 @@ final class Routes {
 		ModSource.SortOrder sort = sortOrder(query.get("sort", null), text);
 		int limit = Math.min(query.getInt("limit", 30), 100);
 
+		ContentType type = ContentType.fromKey(query.get("type", "mod"));
+		if (type == null) {
+			throw new ApiException(400, "Unknown content type: " + query.get("type", ""));
+		}
+
 		String sourceKey = query.get("source", null);
 		SourceId only = null;
 		if (sourceKey != null && !sourceKey.equalsIgnoreCase("all")) {
@@ -648,7 +800,7 @@ final class Routes {
 		}
 
 		SourceRegistry.Merged merged =
-				this.home.sources().search(text, gameVersion, loader, sort, limit, only);
+				this.home.sources().search(text, gameVersion, loader, sort, limit, only, type);
 
 		JsonObject result = Json.object();
 		result.add("results", Json.arrayOf(merged.results(), Routes::remoteModJson));

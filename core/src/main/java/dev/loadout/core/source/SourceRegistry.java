@@ -67,6 +67,12 @@ public final class SourceRegistry {
 	 */
 	public Merged search(String query, String gameVersion, String loader,
 			ModSource.SortOrder sort, int limit, SourceId only) {
+		return search(query, gameVersion, loader, sort, limit, only, ContentType.MOD);
+	}
+
+	/** @param type what kind of content to look for */
+	public Merged search(String query, String gameVersion, String loader,
+			ModSource.SortOrder sort, int limit, SourceId only, ContentType type) {
 		// Kept per source rather than pooled, because each source has already ranked its own
 		// results and that ranking is the thing worth preserving.
 		List<List<RemoteMod>> perSource = new ArrayList<>();
@@ -77,7 +83,7 @@ public final class SourceRegistry {
 				continue;
 			}
 			try {
-				perSource.add(source.search(query, gameVersion, loader, sort, limit, 0));
+				perSource.add(source.search(query, gameVersion, loader, sort, limit, 0, type));
 			} catch (IOException | InterruptedException e) {
 				if (e instanceof InterruptedException) {
 					Thread.currentThread().interrupt();

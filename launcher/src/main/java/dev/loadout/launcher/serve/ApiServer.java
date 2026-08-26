@@ -120,6 +120,22 @@ public final class ApiServer {
 		add("GET", "/profiles/{name}/icons", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.modIcons(path.get("name"))));
 
+		add("GET", "/profiles/{name}/worlds", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.worlds(path.get("name"))));
+		add("GET", "/profiles/{name}/servers", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.servers(path.get("name"))));
+		add("GET", "/profiles/{name}/packs", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.packs(path.get("name"), query)));
+		add("GET", "/profiles/{name}/logs", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.logs(path.get("name"))));
+		add("GET", "/profiles/{name}/log", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.logTail(path.get("name"), query)));
+
+		add("POST", "/profiles/{name}/duplicate", (exchange, path, query) ->
+				Json.send(exchange, 201, this.routes.duplicate(path.get("name"), Json.readObject(exchange))));
+		add("POST", "/profiles/{name}/export", (exchange, path, query) ->
+				Json.send(exchange, 202, this.routes.export(path.get("name"), Json.readObject(exchange))));
+
 		add("GET", "/profiles/{name}/snapshots", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.snapshots(path.get("name"))));
 		add("POST", "/profiles/{name}/rollback", (exchange, path, query) ->
