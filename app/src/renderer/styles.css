@@ -1886,6 +1886,14 @@ img.art { color: transparent; }
 	line-height: 1.65;
 	user-select: text;
 	padding-bottom: 40px;
+	/*
+	 * Descriptions contain bare URLs, and one long enough is a single unbreakable word that
+	 * pushes the whole column past its box. Breaking anywhere is ugly on a URL and correct
+	 * everywhere else, which is the right way round: the alternative is text sliced off at
+	 * the edge with no way to reach it.
+	 */
+	overflow-wrap: anywhere;
+	min-width: 0;
 }
 
 .prose h2, .prose h3, .prose h4, .prose h5, .prose h6 {
@@ -1922,6 +1930,9 @@ img.art { color: transparent; }
 }
 
 .prose .code-block {
+	max-width: 100%;
+	/* Never broken mid-token: code is one place where a wrapped line changes the meaning. */
+	overflow-wrap: normal;
 	background: var(--bg);
 	border: 1px solid var(--line);
 	border-radius: var(--r);
