@@ -81,6 +81,21 @@ public interface ModSource {
 	Optional<RemoteFile> bestFile(String modId, String gameVersion, String loader)
 			throws IOException, InterruptedException;
 
+	/**
+	 * Artwork for several mods at once, keyed by the id asked for.
+	 *
+	 * <p>Bulk because the caller is an installed-mods list: asking per mod would be one
+	 * request per row, which is both slow and a good way to be rate limited by a registry
+	 * that was being perfectly reasonable about it.
+	 *
+	 * <p>Missing entries are simply absent rather than an error. A mod with no artwork, or
+	 * one the registry has since removed, should still render -- just without a picture.
+	 */
+	default java.util.Map<String, String> icons(List<String> modIds)
+			throws IOException, InterruptedException {
+		return java.util.Map.of();
+	}
+
 	/** A mod's display name, for reporting what a dependency actually is. */
 	String modTitle(String modId) throws IOException, InterruptedException;
 

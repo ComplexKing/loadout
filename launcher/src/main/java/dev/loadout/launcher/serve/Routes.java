@@ -293,6 +293,63 @@ final class Routes {
 		return result;
 	}
 
+	/**
+	 * Artwork for the mods in a profile, keyed by file name.
+	 *
+	 * <p>Separate from the profile itself because it needs the network and the profile does
+	 * not. A mod list that cannot render until two registries have answered is a mod list
+	 * that looks broken when one of them is slow -- so the names and versions arrive
+	 * immediately and the pictures fill in behind them.
+	 *
+	 * <p>Grouped by source before asking, since ids only mean anything to the registry that
+	 * issued them, and each source resolves its whole set in one request.
+	 */
+	JsonObject modIcons(String profileName) throws IOException {
+		Profile profile = require(profileName);
+		SourceRegistry registry = this.home.sources();
+
+		java.util.Map<SourceId, java.util.List<String>> wanted = new java.util.LinkedHashMap<>();
+		for (Profile.Entry entry : profile.mods()) {
+			SourceId source = entry.sourceId();
+			if (source != null && entry.projectId() != null) {
+				wanted.computeIfAbsent(source, key -> new java.util.ArrayList<>())
+						.add(entry.projectId());
+			}
+		}
+
+		java.util.Map<SourceId, java.util.Map<String, String>> resolved = new java.util.HashMap<>();
+		for (var group : wanted.entrySet()) {
+			ModSource source = registry.get(group.getKey());
+			if (source == null || !source.isAvailable()) {
+				continue;
+			}
+			try {
+				resolved.put(group.getKey(), source.icons(group.getValue()));
+			} catch (IOException | InterruptedException e) {
+				if (e instanceof InterruptedException) {
+					Thread.currentThread().interrupt();
+				}
+				// One registry being unreachable should still let the other's artwork show.
+			}
+		}
+
+		JsonObject icons = Json.object();
+		for (Profile.Entry entry : profile.mods()) {
+			SourceId source = entry.sourceId();
+			if (source == null || entry.projectId() == null) {
+				continue;
+			}
+			String url = resolved.getOrDefault(source, java.util.Map.of()).get(entry.projectId());
+			if (url != null) {
+				icons.addProperty(entry.fileName(), url);
+			}
+		}
+
+		JsonObject result = Json.object();
+		result.add("icons", icons);
+		return result;
+	}
+
 	// -- snapshots -------------------------------------------------------------------
 
 	JsonObject snapshots(String profileName) throws IOException {

@@ -3,10 +3,9 @@
 <head>
 <meta charset="utf-8">
 <!--
-  Mod icons are hosted by Modrinth and CurseForge, so remote images have to be allowed.
-  Nothing else is: no remote scripts, no frames, no connections. The page talks to the
-  jar through the preload bridge, never over the network itself, so there is no legitimate
-  reason for it to open a connection at all.
+  Mod artwork is hosted by Modrinth and CurseForge, so remote images have to be allowed.
+  Nothing else is. The page talks to the jar through the preload bridge and never over the
+  network itself, so it has no reason to be able to open a connection at all.
 -->
 <meta http-equiv="Content-Security-Policy"
       content="default-src 'none';
@@ -22,83 +21,212 @@
 </head>
 <body>
 
+<!-- Icon definitions, referenced by <use> so the same glyph is not repeated per button. -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+	<defs>
+		<symbol id="i-home" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+			<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>
+		</symbol>
+		<symbol id="i-compass" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+			<circle cx="12" cy="12" r="9"/>
+			<path d="m15.5 8.5-2 5-5 2 2-5z"/>
+		</symbol>
+		<symbol id="i-cog" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+			<circle cx="12" cy="12" r="3.2"/>
+			<path d="M12 2.6a2 2 0 0 1 1.9 1.4l.2.7 1.4.6.7-.3a2 2 0 0 1 2.4.8l.5.9a2 2 0 0 1-.4 2.4l-.5.5v1.6l.5.5a2 2 0 0 1 .4 2.4l-.5.9a2 2 0 0 1-2.4.8l-.7-.3-1.4.6-.2.7a2 2 0 0 1-1.9 1.4h-1a2 2 0 0 1-1.9-1.4l-.2-.7-1.4-.6-.7.3a2 2 0 0 1-2.4-.8l-.5-.9a2 2 0 0 1 .4-2.4l.5-.5v-1.6l-.5-.5a2 2 0 0 1-.4-2.4l.5-.9a2 2 0 0 1 2.4-.8l.7.3 1.4-.6.2-.7A2 2 0 0 1 11 2.6z"/>
+		</symbol>
+		<symbol id="i-plus" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></symbol>
+		<symbol id="i-play" viewBox="0 0 24 24" fill="currentColor" stroke="none"><path d="M7 4.5v15l13-7.5z"/></symbol>
+		<symbol id="i-folder" viewBox="0 0 24 24" fill="currentColor" stroke="none">
+			<path d="M3 6.5A1.5 1.5 0 0 1 4.5 5h4l2 2.5h9A1.5 1.5 0 0 1 21 9v9a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18z"/>
+		</symbol>
+		<symbol id="i-search" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+			<circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/>
+		</symbol>
+		<symbol id="i-warn" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">
+			<path d="M12 4 2.5 20h19z"/><path d="M12 10v4.5M12 17.2v.1"/>
+		</symbol>
+	</defs>
+</svg>
+
 <header class="titlebar">
-	<div class="titlebar-drag">
-		<span class="wordmark">Loadout</span>
-	</div>
+	<div class="titlebar-drag"><span class="wordmark">Loadout</span></div>
 </header>
 
 <div class="shell">
 
-	<nav class="sidebar">
-		<div class="sidebar-head">
-			<span class="sidebar-label">Profiles</span>
-			<button id="new-profile" class="icon-button" title="New profile" aria-label="New profile">+</button>
-		</div>
-		<ul id="profile-list" class="profile-list"></ul>
+	<!-- Icon rail. Modrinth and Prism both put instances one click away at all times;
+	     a nested list you have to navigate back out of makes switching feel like work. -->
+	<nav class="rail">
+		<button class="rail-btn" data-view="home" title="Instances" aria-label="Instances">
+			<svg class="ico"><use href="#i-home"/></svg>
+		</button>
+		<button class="rail-btn" data-view="browse" title="Discover" aria-label="Discover">
+			<svg class="ico"><use href="#i-compass"/></svg>
+		</button>
 
-		<div class="sidebar-foot">
-			<button id="open-settings" class="ghost-button">Settings</button>
-		</div>
+		<div class="rail-sep"></div>
+		<div id="rail-instances" class="rail-instances"></div>
+
+		<button id="rail-new" class="rail-btn ghost" title="New instance" aria-label="New instance">
+			<svg class="ico"><use href="#i-plus"/></svg>
+		</button>
+
+		<div class="rail-spacer"></div>
+		<button class="rail-btn" data-view="settings" title="Settings" aria-label="Settings">
+			<svg class="ico"><use href="#i-cog"/></svg>
+		</button>
 	</nav>
 
 	<main class="content">
 
-		<div id="empty-state" class="empty">
-			<div class="empty-inner">
-				<h1>No profiles yet</h1>
-				<p>A profile is one Minecraft instance — its version, its loader and its mods.</p>
-				<button id="empty-create" class="primary-button">Create a profile</button>
-			</div>
-		</div>
-
-		<section id="profile-view" class="profile-view" hidden>
-			<div class="profile-head">
-				<div class="profile-title">
-					<h1 id="profile-name"></h1>
-					<p id="profile-meta" class="muted"></p>
+		<!-- Instances ------------------------------------------------------------- -->
+		<section class="view" data-view="home">
+			<div class="view-head">
+				<div>
+					<h1>Instances</h1>
+					<p class="sub" id="home-sub"></p>
 				</div>
-				<div class="profile-actions">
-					<button id="launch" class="primary-button">Play</button>
+				<button id="home-new" class="btn primary">
+					<svg class="ico sm"><use href="#i-plus"/></svg> New instance
+				</button>
+			</div>
+
+			<div id="instance-grid" class="instance-grid"></div>
+
+			<div id="home-empty" class="blank" hidden>
+				<div class="blank-art"><svg class="ico xl"><use href="#i-folder"/></svg></div>
+				<h2>No instances yet</h2>
+				<p>An instance is one Minecraft setup — its version, its loader and its mods.</p>
+				<button id="blank-new" class="btn primary">Create your first instance</button>
+			</div>
+		</section>
+
+		<!-- One instance ---------------------------------------------------------- -->
+		<section class="view" data-view="instance" hidden>
+			<div class="hero">
+				<div id="hero-icon" class="hero-icon"></div>
+				<div class="hero-text">
+					<h1 id="hero-name"></h1>
+					<div class="hero-meta" id="hero-meta"></div>
+				</div>
+				<div class="hero-actions">
+					<button id="play" class="btn primary lg">
+						<svg class="ico sm"><use href="#i-play"/></svg> Play
+					</button>
+					<button id="instance-delete" class="btn quiet">Delete</button>
 				</div>
 			</div>
 
-			<div class="tabs" role="tablist">
-				<button class="tab active" data-tab="mods" role="tab">Mods</button>
-				<button class="tab" data-tab="browse" role="tab">Browse</button>
-				<button class="tab" data-tab="versions" role="tab">Versions</button>
+			<div class="segmented" role="tablist">
+				<button class="seg active" data-tab="mods" role="tab">Mods</button>
+				<button class="seg" data-tab="add" role="tab">Add content</button>
+				<button class="seg" data-tab="versions" role="tab">Versions</button>
 			</div>
 
-			<div class="tab-panel" data-panel="mods">
-				<div id="mod-list" class="mod-list"></div>
+			<div class="panel" data-panel="mods">
+				<div class="toolbar">
+					<div class="field">
+						<svg class="ico sm"><use href="#i-search"/></svg>
+						<input id="mod-filter" type="search" placeholder="Filter installed mods"
+						       autocomplete="off" spellcheck="false">
+					</div>
+					<span class="count" id="mod-count"></span>
+				</div>
+				<div id="mod-list" class="rows"></div>
 			</div>
 
-			<div class="tab-panel" data-panel="browse" hidden>
-				<div class="search-row">
-					<input id="search-input" type="search" placeholder="Search Modrinth and CurseForge"
-					       autocomplete="off" spellcheck="false">
-					<select id="search-sort">
+			<div class="panel" data-panel="add" hidden>
+				<div class="toolbar">
+					<div class="field grow">
+						<svg class="ico sm"><use href="#i-search"/></svg>
+						<input id="add-search" type="search" placeholder="Search Modrinth and CurseForge"
+						       autocomplete="off" spellcheck="false">
+					</div>
+					<select id="add-sort" class="select">
 						<option value="RELEVANCE">Relevance</option>
 						<option value="DOWNLOADS">Downloads</option>
-						<option value="UPDATED">Updated</option>
+						<option value="UPDATED">Recently updated</option>
 						<option value="NEWEST">Newest</option>
 					</select>
 				</div>
-				<div id="search-notes" class="notes"></div>
-				<div id="search-results" class="mod-list"></div>
+				<div id="add-notes"></div>
+				<div id="add-results" class="cards"></div>
 			</div>
 
-			<div class="tab-panel" data-panel="versions" hidden>
-				<div class="version-row">
-					<label for="migrate-target">Move this profile to</label>
-					<input id="migrate-target" type="text" placeholder="1.21.4" autocomplete="off">
-					<button id="migrate-plan" class="ghost-button">Check</button>
-					<button id="migrate-apply" class="primary-button" disabled>Apply</button>
+			<div class="panel" data-panel="versions" hidden>
+				<div class="card-block">
+					<h3>Change Minecraft version</h3>
+					<p class="sub">Loadout checks every mod for a matching build before changing anything,
+						and takes a snapshot first so it can be undone.</p>
+					<div class="inline-form">
+						<input id="mig-target" type="text" placeholder="1.21.4" autocomplete="off">
+						<button id="mig-check" class="btn">Check</button>
+						<button id="mig-apply" class="btn primary" disabled>Apply</button>
+					</div>
+					<div id="mig-result"></div>
 				</div>
-				<div id="migrate-result"></div>
 
-				<h2 class="section-heading">History</h2>
-				<div id="snapshot-list" class="snapshot-list"></div>
+				<h3 class="block-heading">History</h3>
+				<div id="snapshots" class="rows"></div>
+			</div>
+		</section>
+
+		<!-- Discover -------------------------------------------------------------- -->
+		<section class="view" data-view="browse" hidden>
+			<div class="view-head">
+				<div>
+					<h1>Discover</h1>
+					<p class="sub">Search both registries at once. Pick an instance to install into.</p>
+				</div>
+				<select id="browse-target" class="select"></select>
+			</div>
+
+			<div class="toolbar">
+				<div class="field grow">
+					<svg class="ico sm"><use href="#i-search"/></svg>
+					<input id="browse-search" type="search" placeholder="Search for mods"
+					       autocomplete="off" spellcheck="false">
+				</div>
+				<select id="browse-sort" class="select">
+					<option value="RELEVANCE">Relevance</option>
+					<option value="DOWNLOADS">Downloads</option>
+					<option value="UPDATED">Recently updated</option>
+					<option value="NEWEST">Newest</option>
+				</select>
+			</div>
+
+			<div id="browse-notes"></div>
+			<div id="browse-results" class="cards"></div>
+		</section>
+
+		<!-- Settings -------------------------------------------------------------- -->
+		<section class="view" data-view="settings" hidden>
+			<div class="view-head"><div><h1>Settings</h1></div></div>
+
+			<div class="card-block">
+				<h3>Mod sources</h3>
+				<div id="sources" class="rows tight"></div>
+				<button id="sources-recheck" class="btn" style="margin-top:12px">Check again</button>
+			</div>
+
+			<div class="card-block">
+				<h3>CurseForge API key</h3>
+				<p class="sub">
+					From console.curseforge.com. Checked before it is saved. Paste it here rather than
+					passing it on a command line, where the shell treats the <code>$</code> sections as
+					variables and silently truncates it.
+				</p>
+				<div class="inline-form">
+					<input id="cf-key" type="password" autocomplete="off" placeholder="Paste your key">
+					<button id="cf-save" class="btn primary">Save</button>
+					<button id="cf-clear" class="btn quiet">Clear</button>
+				</div>
+			</div>
+
+			<div class="card-block">
+				<h3>Java</h3>
+				<div id="javas" class="rows tight"></div>
 			</div>
 		</section>
 
@@ -106,54 +234,54 @@
 </div>
 
 <footer id="jobbar" class="jobbar" hidden>
-	<div class="job-text">
-		<span id="job-title"></span>
-		<span id="job-stage" class="muted"></span>
+	<div class="job-info">
+		<span id="job-title" class="job-title"></span>
+		<span id="job-stage" class="job-stage"></span>
 	</div>
 	<div class="job-track"><div id="job-fill" class="job-fill"></div></div>
-	<button id="job-cancel" class="ghost-button small">Cancel</button>
+	<button id="job-cancel" class="btn quiet sm">Cancel</button>
 </footer>
 
 <div id="toast" class="toast" hidden></div>
 
-<dialog id="profile-dialog" class="dialog">
+<dialog id="new-dialog" class="dialog">
 	<form method="dialog">
-		<h2>New profile</h2>
-		<label for="np-name">Name</label>
-		<input id="np-name" type="text" autocomplete="off" required maxlength="64">
-		<label for="np-version">Minecraft version</label>
-		<input id="np-version" type="text" autocomplete="off" placeholder="1.21.1" required>
-		<label for="np-loader">Loader</label>
-		<select id="np-loader">
-			<option value="fabric">Fabric</option>
-			<option value="quilt">Quilt</option>
-			<option value="neoforge">NeoForge</option>
-			<option value="forge">Forge</option>
-		</select>
+		<h2>New instance</h2>
+
+		<label for="nd-name">Name</label>
+		<input id="nd-name" type="text" autocomplete="off" required maxlength="64"
+		       placeholder="My instance">
+
+		<div class="two-up">
+			<div>
+				<label for="nd-version">Minecraft version</label>
+				<input id="nd-version" type="text" autocomplete="off" required placeholder="1.21.1">
+			</div>
+			<div>
+				<label for="nd-loader">Loader</label>
+				<select id="nd-loader" class="select">
+					<option value="fabric">Fabric</option>
+					<option value="quilt">Quilt</option>
+					<option value="neoforge">NeoForge</option>
+					<option value="forge">Forge</option>
+				</select>
+			</div>
+		</div>
+
 		<div class="dialog-actions">
-			<button value="cancel" class="ghost-button">Cancel</button>
-			<button id="np-create" value="create" class="primary-button">Create</button>
+			<button value="cancel" class="btn quiet">Cancel</button>
+			<button value="create" class="btn primary">Create</button>
 		</div>
 	</form>
 </dialog>
 
-<dialog id="settings-dialog" class="dialog">
+<dialog id="confirm-dialog" class="dialog">
 	<form method="dialog">
-		<h2>Settings</h2>
-
-		<h3>Mod sources</h3>
-		<div id="source-status" class="source-status"></div>
-
-		<label for="cf-key">CurseForge API key</label>
-		<input id="cf-key" type="password" autocomplete="off" placeholder="Paste your key">
-		<p class="hint">
-			From console.curseforge.com. Checked before it is saved. Paste it here rather
-			than passing it to the command line, where the shell eats the $ sections.
-		</p>
-
+		<h2 id="confirm-title">Are you sure?</h2>
+		<p class="sub" id="confirm-body"></p>
 		<div class="dialog-actions">
-			<button value="cancel" class="ghost-button">Close</button>
-			<button id="cf-save" value="save" class="primary-button">Save key</button>
+			<button value="cancel" class="btn quiet">Cancel</button>
+			<button value="ok" class="btn danger">Delete</button>
 		</div>
 	</form>
 </dialog>

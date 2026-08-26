@@ -145,6 +145,48 @@ public final class ModrinthSource implements ModSource {
 	}
 
 	@Override
+	public java.util.Map<String, String> icons(List<String> modIds)
+			throws IOException, InterruptedException {
+		if (modIds.isEmpty()) {
+			return java.util.Map.of();
+		}
+
+		StringBuilder ids = new StringBuilder("[");
+		for (int i = 0; i < modIds.size(); i++) {
+			ids.append(i > 0 ? "," : "").append('"').append(modIds.get(i)).append('"');
+		}
+		ids.append(']');
+
+		java.util.Map<String, String> found = new java.util.HashMap<>();
+		try {
+			JsonArray projects = JsonParser
+					.parseString(this.http.get(API + "/projects?ids=" + Http.encode(ids.toString())))
+					.getAsJsonArray();
+
+			for (JsonElement element : projects) {
+				JsonObject project = element.getAsJsonObject();
+				String icon = Http.string(project, "icon_url");
+				if (icon == null || icon.isBlank()) {
+					continue;
+				}
+				// Keyed by both, because a profile may store either depending on whether the
+				// mod was installed by slug or reached as another mod's dependency.
+				String id = Http.string(project, "id");
+				String slug = Http.string(project, "slug");
+				if (id != null) {
+					found.put(id, icon);
+				}
+				if (slug != null) {
+					found.put(slug, icon);
+				}
+			}
+		} catch (Http.NotFound e) {
+			return java.util.Map.of();
+		}
+		return found;
+	}
+
+	@Override
 	public String modTitle(String modId) throws IOException, InterruptedException {
 		try {
 			String title = Http.string(this.http.getObject(API + "/project/" + Http.encode(modId)), "title");

@@ -34,6 +34,7 @@ contextBridge.exposeInMainWorld('loadout', {
 		install: (profile, source, id) => invoke('mods:install', profile, source, id),
 		remove: (profile, fileName) => invoke('mods:remove', profile, fileName),
 		toggle: (profile, fileName, enabled) => invoke('mods:toggle', profile, fileName, enabled),
+		icons: (profile) => invoke('mods:icons', profile),
 	},
 
 	snapshots: {

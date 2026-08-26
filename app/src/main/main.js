@@ -120,6 +120,8 @@ function registerHandlers() {
 			`/profiles/${encodeURIComponent(name)}/mods/${encodeURIComponent(fileName)}`,
 			{ enabled }));
 
+	handle('mods:icons', (name) => api.get(`/profiles/${encodeURIComponent(name)}/icons`));
+
 	handle('snapshots:list', (name) =>
 		api.get(`/profiles/${encodeURIComponent(name)}/snapshots`));
 	handle('snapshots:rollback', (name, snapshotId) =>
@@ -171,23 +173,48 @@ async function screenshotAndQuit(target) {
 	// an empty list every time, because the profiles are still a request away.
 	await new Promise((resolve) => setTimeout(resolve, 2500));
 
-	// --tab and --query drive the page to the state worth looking at, so a screenshot can
-	// show search results rather than only the first screen.
-	const tab = process.argv.find((arg) => arg.startsWith('--tab='));
-	if (tab) {
-		const name = JSON.stringify(tab.slice('--tab='.length));
-		await window.webContents.executeJavaScript(
-			`document.querySelector('.tab[data-tab=' + ${name} + ']').click()`);
+	// These drive the page to whichever state is worth looking at, so a screenshot can
+	// show search results or an instance rather than only the first screen.
+	const argOf = (name) => {
+		const found = process.argv.find((arg) => arg.startsWith(`--${name}=`));
+		return found ? found.slice(name.length + 3) : null;
+	};
 
-		const query = process.argv.find((arg) => arg.startsWith('--query='));
-		if (query) {
-			const text = JSON.stringify(query.slice('--query='.length));
-			await window.webContents.executeJavaScript(
-				`(() => { const i = document.getElementById('search-input');`
-				+ ` i.value = ${text}; i.dispatchEvent(new Event('input')); })()`);
-		}
-		// Long enough for two registries to answer and their icons to load.
-		await new Promise((resolve) => setTimeout(resolve, 4000));
+	const run = (js) => window.webContents.executeJavaScript(js);
+	const settle = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+	const open = argOf('open');
+	if (open) {
+		await run(`document.querySelector('.rail-tile[data-name=' + ${JSON.stringify(open)} + ']').click()`);
+		await settle(900);
+	}
+
+	const view = argOf('view');
+	if (view) {
+		await run(`document.querySelector('.rail-btn[data-view=' + ${JSON.stringify(view)} + ']').click()`);
+		await settle(600);
+	}
+
+	const tab = argOf('tab');
+	if (tab) {
+		await run(`document.querySelector('.seg[data-tab=' + ${JSON.stringify(tab)} + ']').click()`);
+		await settle(600);
+	}
+
+	const query = argOf('query');
+	if (query) {
+		// Whichever search box is on screen. Dispatching input rather than setting value
+		// alone is what makes the page's own debounce and request actually run.
+		await run(`(() => {
+			const box = [...document.querySelectorAll('input[type=search]')]
+				.find((i) => i.offsetParent !== null && i.id !== 'mod-filter');
+			if (box) { box.value = ${JSON.stringify(query)}; box.dispatchEvent(new Event('input')); }
+		})()`);
+	}
+
+	// Long enough for two registries to answer and their artwork to arrive.
+	if (query || tab || view || open) {
+		await settle(4200);
 	}
 
 	const image = await window.webContents.capturePage();

@@ -56,12 +56,14 @@ public final class SourceRegistry {
 	 */
 	public Merged search(String query, String gameVersion, String loader,
 			ModSource.SortOrder sort, int limit) {
-		List<RemoteMod> found = new ArrayList<>();
+		// Kept per source rather than pooled, because each source has already ranked its own
+		// results and that ranking is the thing worth preserving.
+		List<List<RemoteMod>> perSource = new ArrayList<>();
 		List<String> problems = new ArrayList<>();
 
 		for (ModSource source : available()) {
 			try {
-				found.addAll(source.search(query, gameVersion, loader, sort, limit, 0));
+				perSource.add(source.search(query, gameVersion, loader, sort, limit, 0));
 			} catch (IOException | InterruptedException e) {
 				if (e instanceof InterruptedException) {
 					Thread.currentThread().interrupt();
@@ -74,7 +76,50 @@ public final class SourceRegistry {
 			problems.add(source.id().displayName() + ": " + source.unavailableReason());
 		}
 
-		return new Merged(dedupe(found), List.copyOf(problems));
+		return new Merged(merge(perSource, sort), List.copyOf(problems));
+	}
+
+	/**
+	 * Combines several sources' results into one list.
+	 *
+	 * <p>How they combine depends on what was asked for, and getting this wrong is very
+	 * visible. Sorting everything by download count -- which this used to do unconditionally
+	 * -- discards each registry's relevance ranking, so a search for "create" returned the
+	 * most downloaded mods that merely mentioned it rather than the ones actually named
+	 * that. Worse, it buried an entire source: whichever registry hosts the smaller mods
+	 * ends up below the fold every time, which looks exactly like that source being broken.
+	 *
+	 * <p>So relevance interleaves instead, taking one result from each source in turn. Each
+	 * source's own ordering survives, and both are represented at the top where people
+	 * actually look. An explicit sort by downloads still sorts by downloads, because there
+	 * the number is the question rather than a proxy for it.
+	 */
+	private static List<RemoteMod> merge(List<List<RemoteMod>> perSource, ModSource.SortOrder sort) {
+		Map<String, RemoteMod> byName = new LinkedHashMap<>();
+
+		if (sort == ModSource.SortOrder.DOWNLOADS) {
+			for (List<RemoteMod> results : perSource) {
+				for (RemoteMod mod : results) {
+					byName.putIfAbsent(simplify(mod.title()), mod);
+				}
+			}
+			List<RemoteMod> merged = new ArrayList<>(byName.values());
+			merged.sort(Comparator.comparingLong(RemoteMod::downloads).reversed());
+			return List.copyOf(merged);
+		}
+
+		// Round robin. Sources that run out are simply skipped, so a short list from one
+		// does not leave gaps or cut the other short.
+		int longest = perSource.stream().mapToInt(List::size).max().orElse(0);
+		for (int i = 0; i < longest; i++) {
+			for (List<RemoteMod> results : perSource) {
+				if (i < results.size()) {
+					RemoteMod mod = results.get(i);
+					byName.putIfAbsent(simplify(mod.title()), mod);
+				}
+			}
+		}
+		return List.copyOf(new ArrayList<>(byName.values()));
 	}
 
 	/**
@@ -82,27 +127,6 @@ public final class SourceRegistry {
 	 * @param notes anything that went wrong or is switched off, for showing beneath a listing
 	 */
 	public record Merged(List<RemoteMod> results, List<String> notes) {
-	}
-
-	/**
-	 * Collapses the same mod appearing on several sources, keeping the first seen.
-	 *
-	 * <p>Matching on a simplified title is a heuristic and will occasionally merge two
-	 * genuinely different mods with the same name. That is the better failure: showing one
-	 * of a pair is a mild annoyance, while showing every popular mod twice makes the whole
-	 * listing tiring to read.
-	 */
-	private static List<RemoteMod> dedupe(List<RemoteMod> mods) {
-		Map<String, RemoteMod> byName = new LinkedHashMap<>();
-		for (RemoteMod mod : mods) {
-			byName.putIfAbsent(simplify(mod.title()), mod);
-		}
-
-		List<RemoteMod> merged = new ArrayList<>(byName.values());
-		// Most downloaded first, so a merged listing has one obvious ordering rather than
-		// being grouped by whichever source answered first.
-		merged.sort(Comparator.comparingLong(RemoteMod::downloads).reversed());
-		return List.copyOf(merged);
 	}
 
 	private static String simplify(String title) {

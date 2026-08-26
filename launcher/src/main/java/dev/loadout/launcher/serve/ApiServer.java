@@ -117,6 +117,9 @@ public final class ApiServer {
 				Json.send(exchange, 200,
 						this.routes.toggleMod(path.get("name"), path.get("file"), Json.readObject(exchange))));
 
+		add("GET", "/profiles/{name}/icons", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.modIcons(path.get("name"))));
+
 		add("GET", "/profiles/{name}/snapshots", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.snapshots(path.get("name"))));
 		add("POST", "/profiles/{name}/rollback", (exchange, path, query) ->

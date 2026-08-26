@@ -3,6 +3,7 @@ package dev.loadout.core.source;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -280,6 +281,51 @@ public final class CurseForgeSource implements ModSource {
 				null,  // CurseForge publishes md5/sha1 fingerprints, not sha512
 				Http.number(file, "fileLength"),
 				List.copyOf(required));
+	}
+
+	@Override
+	public java.util.Map<String, String> icons(List<String> modIds)
+			throws IOException, InterruptedException {
+		if (!isAvailable() || modIds.isEmpty()) {
+			return java.util.Map.of();
+		}
+
+		// CurseForge ids are numeric, and its bulk endpoint rejects the whole request if any
+		// one of them is not -- so a Modrinth-style id that reached this list by mistake
+		// would take the rest down with it.
+		StringBuilder body = new StringBuilder("{\"modIds\":[");
+		int count = 0;
+		for (String id : modIds) {
+			if (id.chars().allMatch(Character::isDigit)) {
+				body.append(count++ > 0 ? "," : "").append(id);
+			}
+		}
+		body.append("]}");
+
+		if (count == 0) {
+			return java.util.Map.of();
+		}
+
+		java.util.Map<String, String> found = new java.util.HashMap<>();
+		try {
+			JsonArray data = JsonParser.parseString(this.http.post(API + "/mods", body.toString()))
+					.getAsJsonObject().getAsJsonArray("data");
+			if (data == null) {
+				return found;
+			}
+
+			for (JsonElement element : data) {
+				JsonObject mod = element.getAsJsonObject();
+				String icon = logoUrl(mod);
+				if (icon != null && !icon.isBlank()) {
+					found.put(String.valueOf(Http.number(mod, "id")), icon);
+				}
+			}
+		} catch (IOException e) {
+			// Artwork is decoration. A failure here must not stop a mod list rendering.
+			return java.util.Map.of();
+		}
+		return found;
 	}
 
 	@Override
