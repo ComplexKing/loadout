@@ -55,10 +55,23 @@ public final class ApiServer {
 	private final Jobs jobs = new Jobs();
 	private final Routes routes;
 	private final byte[] token;
+
+	/**
+	 * A second credential, handed to the game rather than to the interface.
+	 *
+	 * <p>The companion mod needs to reach this API, and the only way to give a mod
+	 * something is to put it where the JVM can read it -- which means every other mod in
+	 * that game can read it too. A mod already has the whole JVM, so this is not a new
+	 * capability for a hostile one; what it would be is a way for a careless one to delete
+	 * an instance by accident. So the game gets its own token, and that token reaches a
+	 * deliberately smaller set of endpoints.
+	 */
+	private final byte[] gameToken;
 	private final List<Route> table = new ArrayList<>();
 
 	private ApiServer(int port, dev.loadout.core.LoadoutHome home) throws IOException {
 		this.token = newToken();
+		this.gameToken = newToken();
 		this.routes = new Routes(home, this.jobs);
 
 		// Port 0 asks the OS for a free port. Fixed ports collide with whatever else the
@@ -77,6 +90,10 @@ public final class ApiServer {
 
 		register();
 		this.http.createContext("/", this::dispatch);
+
+		// The port is settled once the server is created, even when zero was asked for.
+		this.routes.setGameCredentials(this.http.getAddress().getPort(),
+				new String(this.gameToken, StandardCharsets.UTF_8));
 	}
 
 	// -- routing ---------------------------------------------------------------------
@@ -210,12 +227,20 @@ public final class ApiServer {
 				return;
 			}
 
-			if (!isAuthorised(exchange)) {
+			Caller caller = callerOf(exchange);
+			if (caller == Caller.NONE) {
 				Json.sendError(exchange, 401, "Missing or invalid API token");
 				return;
 			}
 
 			String[] segments = split(exchange.getRequestURI().getPath());
+
+			if (caller == Caller.GAME && !GAME_ALLOWED.contains(routeKey(exchange, segments))) {
+				// Refused by what it is rather than who sent it, so the message does not
+				// invite probing for which endpoints the smaller token does reach.
+				Json.sendError(exchange, 403, "Not available to the running game");
+				return;
+			}
 			boolean pathMatched = false;
 
 			for (Route route : this.table) {
@@ -358,17 +383,64 @@ public final class ApiServer {
 		return ALLOWED_HOSTS.contains(withoutPort.toLowerCase());
 	}
 
-	private boolean isAuthorised(HttpExchange exchange) {
+	private enum Caller { NONE, UI, GAME }
+
+	private Caller callerOf(HttpExchange exchange) {
 		String header = exchange.getRequestHeaders().getFirst("Authorization");
 		if (header == null || !header.startsWith("Bearer ")) {
-			return false;
+			return Caller.NONE;
 		}
 
 		byte[] presented = header.substring("Bearer ".length()).trim()
 				.getBytes(StandardCharsets.UTF_8);
-		// Constant-time, so the comparison cannot be used to recover the token one byte at
-		// a time. Cheap here, and the alternative is a subtle mistake to have made.
-		return MessageDigest.isEqual(presented, this.token);
+
+		// Constant-time, so neither comparison can be used to recover a token one byte at a
+		// time. Both are always checked for the same reason: returning early on the first
+		// match would make the two take measurably different times.
+		boolean isUi = MessageDigest.isEqual(presented, this.token);
+		boolean isGame = MessageDigest.isEqual(presented, this.gameToken);
+
+		if (isUi) {
+			return Caller.UI;
+		}
+		return isGame ? Caller.GAME : Caller.NONE;
+	}
+
+	/**
+	 * What the running game may do.
+	 *
+	 * <p>Reading its instance, changing what is turned on, and installing -- the things an
+	 * in-game mod manager is for. Not deleting instances, not touching accounts, not
+	 * reading or writing settings, and not launching anything. Written as an allow list
+	 * because a deny list is one endpoint away from being wrong every time this API grows.
+	 */
+	private static final Set<String> GAME_ALLOWED = Set.of(
+			"GET /health",
+			"GET /profiles",
+			"GET /profiles/{name}",
+			"GET /profiles/{name}/icons",
+			"GET /profiles/{name}/packs",
+			"GET /profiles/{name}/worlds",
+			"GET /search",
+			"GET /versions",
+			"GET /mod",
+			"GET /sources",
+			"GET /jobs",
+			"GET /jobs/{id}",
+			"GET /events",
+			"POST /profiles/{name}/mods",
+			"PUT /profiles/{name}/mods/{file}",
+			"DELETE /profiles/{name}/mods/{file}");
+
+	/** The route's shape rather than the request's path, so ids do not end up in the list. */
+	private String routeKey(HttpExchange exchange, String[] segments) {
+		for (Route route : this.table) {
+			if (route.method().equals(exchange.getRequestMethod())
+					&& match(route.pattern(), segments) != null) {
+				return route.method() + " /" + String.join("/", route.pattern());
+			}
+		}
+		return exchange.getRequestMethod() + " " + exchange.getRequestURI().getPath();
 	}
 
 	// -- server-sent events ----------------------------------------------------------
@@ -459,6 +531,7 @@ public final class ApiServer {
 		hello.addProperty("ready", true);
 		hello.addProperty("port", server.http.getAddress().getPort());
 		hello.addProperty("token", new String(server.token, StandardCharsets.UTF_8));
+		hello.addProperty("gameToken", new String(server.gameToken, StandardCharsets.UTF_8));
 		hello.addProperty("pid", ProcessHandle.current().pid());
 
 		System.out.println(Json.GSON.toJson(hello));

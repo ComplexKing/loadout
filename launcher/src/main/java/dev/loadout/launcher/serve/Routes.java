@@ -49,10 +49,24 @@ final class Routes {
 	private final ProfileManager profiles;
 	private final Jobs jobs;
 
+	/**
+	 * Where this API is listening, so a launched game can be told how to reach it.
+	 *
+	 * <p>Set after the server binds, because the port is only known then -- it asks the
+	 * operating system for a free one rather than insisting on a number.
+	 */
+	private int apiPort;
+	private String gameToken;
+
 	Routes(LoadoutHome home, Jobs jobs) {
 		this.home = home;
 		this.profiles = new ProfileManager(home);
 		this.jobs = jobs;
+	}
+
+	void setGameCredentials(int port, String token) {
+		this.apiPort = port;
+		this.gameToken = token;
 	}
 
 	// -- meta ------------------------------------------------------------------------
@@ -937,6 +951,11 @@ final class Routes {
 
 			LogRedactor redactor = new LogRedactor();
 			redactor.addSecret(account.accessToken());
+			// The game prints its own command line on some crashes, and this token would be
+			// in it.
+			if (this.gameToken != null) {
+				redactor.addSecret(this.gameToken);
+			}
 
 			// Resolved rather than read straight off the instance: an instance that does
 			// not override a group is meant to follow the global default, including one
@@ -956,10 +975,20 @@ final class Routes {
 					? options.javaPath()
 					: java.executable().toString();
 
+			// How the companion mod finds this API. The token is the narrow one, not the
+			// interface's: everything in that JVM can read a system property, so what is
+			// put there has to be something it is acceptable for every mod to hold.
+			List<String> withApi = new java.util.ArrayList<>(jvmArgs);
+			if (this.apiPort > 0 && this.gameToken != null) {
+				withApi.add("-Dloadout.api.port=" + this.apiPort);
+				withApi.add("-Dloadout.api.token=" + this.gameToken);
+				withApi.add("-Dloadout.instance.name=" + profileName);
+			}
+
 			List<String> command = LaunchBuilder.build(
 					javaBinary, versionJson, fabric, installer,
 					profile.minecraftVersion(), this.home.profileDir(profileName), account,
-					jvmArgs);
+					withApi);
 
 			reporter.log("Heap: " + String.join(" ", jvmArgs));
 
