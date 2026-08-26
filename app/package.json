@@ -1,0 +1,32 @@
+{
+  "name": "loadout-app",
+  "version": "0.1.0",
+  "description": "Desktop interface for Loadout",
+  "license": "MIT",
+  "private": true,
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
+  },
+  "devDependencies": {
+    "electron": "^44.0.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "dev.loadout.app",
+    "productName": "Loadout",
+    "files": ["src/**/*", "package.json"],
+    "extraResources": [
+      {
+        "from": "../build/dist/loadout.jar",
+        "to": "loadout.jar"
+      }
+    ],
+    "win": { "target": "nsis" },
+    "linux": { "target": "AppImage", "category": "Game" },
+    "mac": { "target": "dmg" }
+  }
+}

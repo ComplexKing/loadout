@@ -25,3 +25,7 @@ bin/*
 accounts.json
 *.token
 .env
+
+# Electron app dependencies and build output.
+app/node_modules/
+app/dist/

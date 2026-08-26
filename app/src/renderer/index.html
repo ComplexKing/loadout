@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--
+  Mod icons are hosted by Modrinth and CurseForge, so remote images have to be allowed.
+  Nothing else is: no remote scripts, no frames, no connections. The page talks to the
+  jar through the preload bridge, never over the network itself, so there is no legitimate
+  reason for it to open a connection at all.
+-->
+<meta http-equiv="Content-Security-Policy"
+      content="default-src 'none';
+               img-src 'self' https: data:;
+               style-src 'self' 'unsafe-inline';
+               script-src 'self';
+               font-src 'self';
+               connect-src 'none';
+               form-action 'none';
+               base-uri 'none'">
+<title>Loadout</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="titlebar">
+	<div class="titlebar-drag">
+		<span class="wordmark">Loadout</span>
+	</div>
+</header>
+
+<div class="shell">
+
+	<nav class="sidebar">
+		<div class="sidebar-head">
+			<span class="sidebar-label">Profiles</span>
+			<button id="new-profile" class="icon-button" title="New profile" aria-label="New profile">+</button>
+		</div>
+		<ul id="profile-list" class="profile-list"></ul>
+
+		<div class="sidebar-foot">
+			<button id="open-settings" class="ghost-button">Settings</button>
+		</div>
+	</nav>
+
+	<main class="content">
+
+		<div id="empty-state" class="empty">
+			<div class="empty-inner">
+				<h1>No profiles yet</h1>
+				<p>A profile is one Minecraft instance — its version, its loader and its mods.</p>
+				<button id="empty-create" class="primary-button">Create a profile</button>
+			</div>
+		</div>
+
+		<section id="profile-view" class="profile-view" hidden>
+			<div class="profile-head">
+				<div class="profile-title">
+					<h1 id="profile-name"></h1>
+					<p id="profile-meta" class="muted"></p>
+				</div>
+				<div class="profile-actions">
+					<button id="launch" class="primary-button">Play</button>
+				</div>
+			</div>
+
+			<div class="tabs" role="tablist">
+				<button class="tab active" data-tab="mods" role="tab">Mods</button>
+				<button class="tab" data-tab="browse" role="tab">Browse</button>
+				<button class="tab" data-tab="versions" role="tab">Versions</button>
+			</div>
+
+			<div class="tab-panel" data-panel="mods">
+				<div id="mod-list" class="mod-list"></div>
+			</div>
+
+			<div class="tab-panel" data-panel="browse" hidden>
+				<div class="search-row">
+					<input id="search-input" type="search" placeholder="Search Modrinth and CurseForge"
+					       autocomplete="off" spellcheck="false">
+					<select id="search-sort">
+						<option value="RELEVANCE">Relevance</option>
+						<option value="DOWNLOADS">Downloads</option>
+						<option value="UPDATED">Updated</option>
+						<option value="NEWEST">Newest</option>
+					</select>
+				</div>
+				<div id="search-notes" class="notes"></div>
+				<div id="search-results" class="mod-list"></div>
+			</div>
+
+			<div class="tab-panel" data-panel="versions" hidden>
+				<div class="version-row">
+					<label for="migrate-target">Move this profile to</label>
+					<input id="migrate-target" type="text" placeholder="1.21.4" autocomplete="off">
+					<button id="migrate-plan" class="ghost-button">Check</button>
+					<button id="migrate-apply" class="primary-button" disabled>Apply</button>
+				</div>
+				<div id="migrate-result"></div>
+
+				<h2 class="section-heading">History</h2>
+				<div id="snapshot-list" class="snapshot-list"></div>
+			</div>
+		</section>
+
+	</main>
+</div>
+
+<footer id="jobbar" class="jobbar" hidden>
+	<div class="job-text">
+		<span id="job-title"></span>
+		<span id="job-stage" class="muted"></span>
+	</div>
+	<div class="job-track"><div id="job-fill" class="job-fill"></div></div>
+	<button id="job-cancel" class="ghost-button small">Cancel</button>
+</footer>
+
+<div id="toast" class="toast" hidden></div>
+
+<dialog id="profile-dialog" class="dialog">
+	<form method="dialog">
+		<h2>New profile</h2>
+		<label for="np-name">Name</label>
+		<input id="np-name" type="text" autocomplete="off" required maxlength="64">
+		<label for="np-version">Minecraft version</label>
+		<input id="np-version" type="text" autocomplete="off" placeholder="1.21.1" required>
+		<label for="np-loader">Loader</label>
+		<select id="np-loader">
+			<option value="fabric">Fabric</option>
+			<option value="quilt">Quilt</option>
+			<option value="neoforge">NeoForge</option>
+			<option value="forge">Forge</option>
+		</select>
+		<div class="dialog-actions">
+			<button value="cancel" class="ghost-button">Cancel</button>
+			<button id="np-create" value="create" class="primary-button">Create</button>
+		</div>
+	</form>
+</dialog>
+
+<dialog id="settings-dialog" class="dialog">
+	<form method="dialog">
+		<h2>Settings</h2>
+
+		<h3>Mod sources</h3>
+		<div id="source-status" class="source-status"></div>
+
+		<label for="cf-key">CurseForge API key</label>
+		<input id="cf-key" type="password" autocomplete="off" placeholder="Paste your key">
+		<p class="hint">
+			From console.curseforge.com. Checked before it is saved. Paste it here rather
+			than passing it to the command line, where the shell eats the $ sections.
+		</p>
+
+		<div class="dialog-actions">
+			<button value="cancel" class="ghost-button">Close</button>
+			<button id="cf-save" value="save" class="primary-button">Save key</button>
+		</div>
+	</form>
+</dialog>
+
+<script src="app.js"></script>
+</body>
+</html>

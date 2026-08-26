@@ -160,10 +160,34 @@ server-sent events.
 The server is loopback-only, sends no CORS headers, and checks the `Host` header, so a
 web page cannot reach it even while the launcher is running.
 
+## Desktop app
+
+An Electron front end lives in `app/`. It spawns the jar, reads the port and token from
+its handshake, and drives the API — so the logic has one implementation and the CLI stays
+a first-class way to use it rather than a stripped-down mode.
+
+```bash
+cd app && npm install && npm start
+```
+
+Needs `gradlew dist` to have been run first, since it looks for `build/dist/loadout.jar`.
+
+Two flags help when working on the interface. `--dev` forwards the page's console to the
+terminal, and `--screenshot=<path>` renders the window to a PNG and exits, optionally
+after `--tab=browse --query=shader` — so a layout can be reviewed without a window
+repeatedly taking over the screen:
+
+```bash
+npm start -- --dev --tab=browse --query=shader --screenshot=out.png
+```
+
+The renderer holds no API token. It talks to the main process over a fixed set of named
+IPC channels, and the main process holds the credential — which matters because the page
+renders titles and descriptions written by strangers on two public registries.
+
 ## Not done yet
 
 - **Microsoft sign-in** — pending an approved Azure application.
-- **Graphical interface** — a desktop app over the `serve` API.
 
 ## Licence
 

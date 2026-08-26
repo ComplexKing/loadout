@@ -1,0 +1,237 @@
+'use strict';
+
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
+const path = require('node:path');
+const { Backend } = require('./backend');
+const { Api } = require('./api');
+
+const backend = new Backend();
+let api = null;
+let window = null;
+let stopEvents = null;
+let ready = false;
+
+function createWindow() {
+	window = new BrowserWindow({
+		width: 1180,
+		height: 760,
+		minWidth: 900,
+		minHeight: 600,
+		show: false,
+		backgroundColor: '#14161a',
+		// The frame is drawn by the page so the sidebar can run the full height, which is
+		// most of why Prism and the Modrinth app look like applications rather than forms.
+		titleBarStyle: 'hidden',
+		titleBarOverlay: { color: '#14161a', symbolColor: '#8b93a1', height: 38 },
+		webPreferences: {
+			preload: path.join(__dirname, '..', 'preload', 'preload.js'),
+			// The renderer displays text written by strangers -- mod titles, descriptions,
+			// author names pulled from two public registries. It gets no Node, no direct
+			// access to this process's objects, and its own OS sandbox.
+			contextIsolation: true,
+			nodeIntegration: false,
+			sandbox: true,
+			webviewTag: false,
+		},
+	});
+
+	window.once('ready-to-show', () => window.show());
+	window.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'));
+
+	// The jar and the page start at the same time and either can win. Announcing on both
+	// edges -- when the backend comes up, and when a page finishes loading if it is
+	// already up -- is what makes a reload behave the same as a cold start.
+	window.webContents.on('did-finish-load', () => {
+		if (ready && window && !window.isDestroyed()) {
+			window.webContents.send('backend:ready');
+		}
+	});
+
+	// With --dev, the page's own console comes through to the terminal. A renderer error
+	// is otherwise invisible unless someone has devtools open, which is exactly when a
+	// startup failure is hardest to catch.
+	if (process.argv.includes('--dev')) {
+		const levels = ['debug', 'info', 'warning', 'error'];
+		window.webContents.on('console-message', (event) => {
+			const level = levels[event.level] || event.level;
+			console.log(`[renderer:${level}] ${event.message}`);
+		});
+		window.webContents.on('render-process-gone', (_event, details) =>
+			console.error('[renderer gone]', details.reason));
+	}
+
+	// Anything that would navigate the window elsewhere opens in the real browser instead.
+	// A mod page is a link, not a place for this window to end up -- and a window that can
+	// be navigated to an arbitrary site is a window with a preload script attached to it.
+	window.webContents.setWindowOpenHandler(({ url }) => {
+		if (url.startsWith('https://')) {
+			shell.openExternal(url);
+		}
+		return { action: 'deny' };
+	});
+
+	window.webContents.on('will-navigate', (event, url) => {
+		if (!url.startsWith('file://')) {
+			event.preventDefault();
+			if (url.startsWith('https://')) {
+				shell.openExternal(url);
+			}
+		}
+	});
+}
+
+/**
+ * Wires each API operation to its own channel.
+ *
+ * Named channels rather than one "call this path" channel. The renderer should be able to
+ * ask for the things this application does and nothing else, so the surface is written
+ * out rather than forwarded -- and it doubles as the list of what the UI actually needs.
+ */
+function registerHandlers() {
+	const handle = (channel, fn) => ipcMain.handle(channel, async (_event, ...args) => {
+		try {
+			return { ok: true, data: await fn(...args) };
+		} catch (error) {
+			// Rejections cross the IPC boundary as opaque strings, so failures are returned
+			// as values and the renderer decides how to show them.
+			return { ok: false, error: error.message };
+		}
+	});
+
+	handle('health', () => api.get('/health'));
+
+	handle('sources:list', (verify) => api.get(`/sources?verify=${verify ? 'true' : 'false'}`));
+	handle('settings:curseforgeKey', (key) =>
+		api.request('PUT', '/settings/curseforge-key', { key }));
+
+	handle('profiles:list', () => api.get('/profiles'));
+	handle('profiles:get', (name) => api.get(`/profiles/${encodeURIComponent(name)}`));
+	handle('profiles:create', (profile) => api.request('POST', '/profiles', profile));
+	handle('profiles:delete', (name) =>
+		api.request('DELETE', `/profiles/${encodeURIComponent(name)}`));
+
+	handle('mods:install', (name, source, id) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/mods`, { source, id }));
+	handle('mods:remove', (name, fileName) =>
+		api.request('DELETE',
+			`/profiles/${encodeURIComponent(name)}/mods/${encodeURIComponent(fileName)}`));
+	handle('mods:toggle', (name, fileName, enabled) =>
+		api.request('PUT',
+			`/profiles/${encodeURIComponent(name)}/mods/${encodeURIComponent(fileName)}`,
+			{ enabled }));
+
+	handle('snapshots:list', (name) =>
+		api.get(`/profiles/${encodeURIComponent(name)}/snapshots`));
+	handle('snapshots:rollback', (name, snapshotId) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/rollback`, { snapshotId }));
+
+	handle('migrate', (name, target, apply, includeLikely) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/migrate`,
+			{ target, apply, includeLikely }));
+
+	handle('launch', (name, username) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/launch`, { username }));
+
+	handle('search', (query) => {
+		const params = new URLSearchParams();
+		for (const [key, value] of Object.entries(query || {})) {
+			if (value !== undefined && value !== null && value !== '') {
+				params.set(key, String(value));
+			}
+		}
+		return api.get(`/search?${params.toString()}`);
+	});
+
+	handle('java:list', () => api.get('/java'));
+	handle('jobs:list', () => api.get('/jobs'));
+	handle('jobs:cancel', (id) => api.request('POST', `/jobs/${encodeURIComponent(id)}/cancel`));
+
+	// Links are opened here rather than by the page, so the renderer can never hand an
+	// arbitrary scheme to the OS. Only https survives the check.
+	ipcMain.handle('open:external', (_event, url) => {
+		if (typeof url === 'string' && url.startsWith('https://')) {
+			shell.openExternal(url);
+			return { ok: true };
+		}
+		return { ok: false, error: 'Only https links can be opened' };
+	});
+}
+
+/**
+ * Renders the window to a PNG and exits.
+ *
+ * The same reason the Swing build grew a preview command: iterating on a layout should
+ * not mean a window repeatedly seizing focus on someone's desktop, and a screenshot is
+ * reviewable without being present when it was taken.
+ *
+ * @param target path to write
+ */
+async function screenshotAndQuit(target) {
+	// Data has to have arrived, not just the document. A capture on did-finish-load shows
+	// an empty list every time, because the profiles are still a request away.
+	await new Promise((resolve) => setTimeout(resolve, 2500));
+
+	// --tab and --query drive the page to the state worth looking at, so a screenshot can
+	// show search results rather than only the first screen.
+	const tab = process.argv.find((arg) => arg.startsWith('--tab='));
+	if (tab) {
+		const name = JSON.stringify(tab.slice('--tab='.length));
+		await window.webContents.executeJavaScript(
+			`document.querySelector('.tab[data-tab=' + ${name} + ']').click()`);
+
+		const query = process.argv.find((arg) => arg.startsWith('--query='));
+		if (query) {
+			const text = JSON.stringify(query.slice('--query='.length));
+			await window.webContents.executeJavaScript(
+				`(() => { const i = document.getElementById('search-input');`
+				+ ` i.value = ${text}; i.dispatchEvent(new Event('input')); })()`);
+		}
+		// Long enough for two registries to answer and their icons to load.
+		await new Promise((resolve) => setTimeout(resolve, 4000));
+	}
+
+	const image = await window.webContents.capturePage();
+	require('node:fs').writeFileSync(target, image.toPNG());
+	console.log(`screenshot written to ${target}`);
+	app.quit();
+}
+
+app.whenReady().then(async () => {
+	registerHandlers();
+	createWindow();
+
+	try {
+		const { port, token } = await backend.start();
+		api = new Api(port, token);
+		ready = true;
+
+		stopEvents = api.events((event) => {
+			if (window && !window.isDestroyed()) {
+				window.webContents.send('job:event', event);
+			}
+		});
+
+		if (window && !window.isDestroyed()) {
+			window.webContents.send('backend:ready');
+		}
+
+		const shot = process.argv.find((arg) => arg.startsWith('--screenshot='));
+		if (shot) {
+			await screenshotAndQuit(shot.slice('--screenshot='.length));
+		}
+	} catch (error) {
+		dialog.showErrorBox('Loadout could not start', error.message);
+		app.quit();
+	}
+});
+
+// The jar is this application's actual process; leaving it running after the window is
+// gone would leave an HTTP server listening with nothing driving it.
+app.on('window-all-closed', () => app.quit());
+
+app.on('before-quit', () => {
+	if (stopEvents) {
+		stopEvents();
+	}
+	backend.stop();
+});
