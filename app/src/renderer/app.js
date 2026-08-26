@@ -2032,6 +2032,24 @@ function renderOptions(mount, options, defaults, onSave) {
 			fallback('javaPath') || 'Chosen automatically', true);
 		textField(body, 'jvmArgs', 'Extra JVM arguments', options.jvmArgs,
 			fallback('jvmArgs') || '', true);
+
+		// Nothing is applied unless chosen. Quietly rewriting how somebody's game runs and
+		// then being blamed for it is worse than offering the choice.
+		const wrap = el('label', 'opt-field');
+		wrap.appendChild(el('span', null, 'Garbage collector'));
+		const holder = el('div');
+		wrap.appendChild(holder);
+		body.appendChild(wrap);
+
+		const chosen = options.gcPreset || fallback('gcPreset') || 'default';
+		let value = chosen;
+		const select = makeSelect([
+			{ value: 'default', label: 'JVM default' },
+			{ value: 'balanced', label: 'Balanced (G1, tuned)' },
+			{ value: 'lowpause', label: 'Low pause (ZGC)' },
+		], chosen, (next) => { value = next; });
+		holder.appendChild(select);
+		fields.gcPreset = () => value;
 	});
 
 	group('Window', 'Game window', (body) => {

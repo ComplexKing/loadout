@@ -721,6 +721,7 @@ final class Routes {
 		if (options.memoryMaxMb() != null) json.addProperty("memoryMaxMb", options.memoryMaxMb());
 		if (options.javaPath() != null) json.addProperty("javaPath", options.javaPath());
 		if (options.jvmArgs() != null) json.addProperty("jvmArgs", options.jvmArgs());
+		if (options.gcPreset() != null) json.addProperty("gcPreset", options.gcPreset());
 		if (options.windowWidth() != null) json.addProperty("windowWidth", options.windowWidth());
 		if (options.windowHeight() != null) json.addProperty("windowHeight", options.windowHeight());
 		if (options.preLaunchCommand() != null) json.addProperty("preLaunchCommand", options.preLaunchCommand());
@@ -739,6 +740,7 @@ final class Routes {
 		options.setMemory(optionalInt(body, "memoryMinMb"), optionalInt(body, "memoryMaxMb"));
 		options.setJava(Json.optionalString(body, "javaPath", null),
 				Json.optionalString(body, "jvmArgs", null));
+		options.setGcPreset(Json.optionalString(body, "gcPreset", null));
 		options.setWindow(optionalInt(body, "windowWidth"), optionalInt(body, "windowHeight"),
 				Json.optionalBoolean(body, "fullscreen", false));
 		options.setCommands(Json.optionalString(body, "preLaunchCommand", null),

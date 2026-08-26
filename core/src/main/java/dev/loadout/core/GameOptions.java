@@ -31,6 +31,7 @@ public final class GameOptions {
 	private Integer windowWidth;
 	private Integer windowHeight;
 	private Boolean fullscreen;
+	private String gcPreset;
 	private String preLaunchCommand;
 	private String postExitCommand;
 
@@ -66,6 +67,22 @@ public final class GameOptions {
 
 	public boolean fullscreen() {
 		return Boolean.TRUE.equals(this.fullscreen);
+	}
+
+	/**
+	 * Which garbage collector settings to use, or null for the JVM's own.
+	 *
+	 * <p>Worth offering because Minecraft's allocation pattern is unusual: it churns an
+	 * enormous number of short-lived objects every frame, and the defaults are tuned for
+	 * long-running server workloads rather than for something where a 200ms pause is a
+	 * visible stutter.
+	 */
+	public String gcPreset() {
+		return this.gcPreset;
+	}
+
+	public void setGcPreset(String preset) {
+		this.gcPreset = blankToNull(preset);
 	}
 
 	public String preLaunchCommand() {
@@ -147,6 +164,7 @@ public final class GameOptions {
 		out.setJava(java.javaPath, java.jvmArgs);
 		out.setWindow(window.windowWidth, window.windowHeight, window.fullscreen);
 		out.setCommands(commands.preLaunchCommand, commands.postExitCommand);
+		out.setGcPreset(java.gcPreset);
 		return out;
 	}
 
@@ -166,6 +184,10 @@ public final class GameOptions {
 		if (this.memoryMaxMb != null && this.memoryMaxMb > 0) {
 			args.add("-Xmx" + this.memoryMaxMb + "M");
 		}
+		args.addAll(gcArguments());
+
+		// The user's own arguments go last, so anything set deliberately wins over a
+		// preset this program chose for them.
 		if (this.jvmArgs != null) {
 			for (String arg : this.jvmArgs.trim().split("\\s+")) {
 				if (!arg.isBlank()) {
@@ -174,6 +196,56 @@ public final class GameOptions {
 			}
 		}
 		return args;
+	}
+
+	/**
+	 * Collector settings for the chosen preset.
+	 *
+	 * <p>"Balanced" is G1 asked to keep pauses short and collect young objects
+	 * aggressively, which suits a game that allocates heavily every frame and keeps almost
+	 * none of it. The alternative is a collector letting garbage accumulate and then
+	 * spending a visible pause on it -- the stutter people blame on their world rather than
+	 * on a default.
+	 *
+	 * <p>"Low pause" uses the generational collector built for this shape of workload. It
+	 * costs some throughput and a little memory for consistently shorter pauses, which is
+	 * the right trade for a game and the wrong one for a build server.
+	 *
+	 * <p>Nothing is applied unless asked for. A launcher that quietly rewrites how somebody
+	 * runs their game, and is then blamed when something behaves oddly, is worse than one
+	 * that offers the choice.
+	 */
+	public List<String> gcArguments() {
+		if (this.gcPreset == null || this.gcPreset.equals("default")) {
+			return List.of();
+		}
+
+		if (this.gcPreset.equals("lowpause")) {
+			return List.of("-XX:+UseZGC", "-XX:+ZGenerational");
+		}
+
+		return List.of(
+				"-XX:+UseG1GC",
+				// About half a frame at 60fps. Longer lets G1 batch work into pauses that
+				// are visible; much shorter makes it collect too often to keep up.
+				"-XX:MaxGCPauseMillis=37",
+				"-XX:+UnlockExperimentalVMOptions",
+				// A large young generation, because nearly everything Minecraft allocates
+				// dies within a frame or two, and collecting it there is close to free.
+				"-XX:G1NewSizePercent=28",
+				"-XX:G1MaxNewSizePercent=45",
+				"-XX:G1HeapRegionSize=8M",
+				"-XX:G1ReservePercent=20",
+				// Start collecting well before the heap fills: reaching full means a pause
+				// long enough to see, whatever the target above asks for.
+				"-XX:InitiatingHeapOccupancyPercent=20",
+				// Anything surviving one collection is promoted rather than copied between
+				// survivor spaces, which is wasted work for this workload.
+				"-XX:MaxTenuringThreshold=1",
+				"-XX:SurvivorRatio=32",
+				// The shared-memory file the JVM writes for external monitoring costs
+				// measurable time at startup and nothing here reads it.
+				"-XX:+PerfDisableSharedMem");
 	}
 
 	/**
