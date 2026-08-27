@@ -430,7 +430,12 @@ public final class ApiServer {
 			"GET /events",
 			"POST /profiles/{name}/mods",
 			"PUT /profiles/{name}/mods/{file}",
-			"DELETE /profiles/{name}/mods/{file}");
+			"DELETE /profiles/{name}/mods/{file}",
+			// Starting a successor to itself, which is what makes a mod change cheap. A mod
+			// could use this to launch a different instance, which is a nuisance rather
+			// than a danger -- anything running in that JVM can already start a process.
+			// The lines that matter, accounts and deletion, stay closed.
+			"POST /profiles/{name}/launch");
 
 	/** The route's shape rather than the request's path, so ids do not end up in the list. */
 	private String routeKey(HttpExchange exchange, String[] segments) {

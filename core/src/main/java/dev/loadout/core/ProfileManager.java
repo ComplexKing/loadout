@@ -129,9 +129,20 @@ public final class ProfileManager {
 				continue;   // unpacked at install time, not linked
 			}
 
-			Path dir = entry.kind() == dev.loadout.core.source.ContentType.MOD
-					? modsGeneration
-					: instance.resolve(entry.kind().folder());
+			boolean isMod = entry.kind() == dev.loadout.core.source.ContentType.MOD;
+
+			// A disabled mod is left out of the generation rather than written into it
+			// with a .disabled suffix. Fabric's addMods scan takes only files ending in
+			// .jar -- checked against the loader, which collects the rest and reports
+			// them as "Incompatible files ... (non-jar or hidden)" -- so a suffixed jar
+			// would be correctly ignored, and would also put every mod somebody has
+			// switched off into a warning at every startup. The generation is a staging
+			// directory nobody browses; the profile is where the entry is remembered.
+			if (isMod && !entry.enabled()) {
+				continue;
+			}
+
+			Path dir = isMod ? modsGeneration : instance.resolve(entry.kind().folder());
 
 			this.home.store().linkInto(entry.sha512(), dir, entry.fileName(), entry.enabled());
 			written++;

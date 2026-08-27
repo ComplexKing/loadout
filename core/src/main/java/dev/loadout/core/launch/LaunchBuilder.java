@@ -71,6 +71,28 @@ public final class LaunchBuilder {
 	 * @param gameDir the profile's own directory, which becomes the game's working folder
 	 * @param extraJvmArgs anything the user configured, e.g. heap size
 	 */
+	/**
+	 * Where the game should go once it has started.
+	 *
+	 * <p>What makes a mod change cheap. A change only applies on the next launch, so the
+	 * next launch has to put somebody back where they were -- otherwise "restart to apply"
+	 * means two minutes of menus, and nobody does that twice.
+	 *
+	 * @param type "multiplayer" for a server address, "singleplayer" for a world folder
+	 * @param target the address or the folder name
+	 */
+	public record QuickPlay(String type, String target) {
+		/** The feature flag the version manifest guards its arguments with. */
+		String feature() {
+			return "is_quick_play_" + this.type;
+		}
+
+		/** The placeholder those arguments substitute. */
+		String placeholder() {
+			return "quickPlay" + Character.toUpperCase(this.type.charAt(0)) + this.type.substring(1);
+		}
+	}
+
 	public static List<String> build(
 			String javaExecutable,
 			JsonObject versionJson,
@@ -80,6 +102,22 @@ public final class LaunchBuilder {
 			Path gameDir,
 			Account account,
 			List<String> extraJvmArgs
+	) throws java.io.IOException {
+		return build(javaExecutable, versionJson, fabricProfile, installer, versionId, gameDir,
+				account, extraJvmArgs, null);
+	}
+
+	/** @param quickPlay where to go once started, or null for the main menu */
+	public static List<String> build(
+			String javaExecutable,
+			JsonObject versionJson,
+			JsonObject fabricProfile,
+			GameInstaller installer,
+			String versionId,
+			Path gameDir,
+			Account account,
+			List<String> extraJvmArgs,
+			QuickPlay quickPlay
 	) throws java.io.IOException {
 		List<LibraryResolver.Library> libraries = LibraryResolver.resolve(versionJson, fabricProfile);
 
@@ -149,11 +187,19 @@ public final class LaunchBuilder {
 				: null;
 		command.add(mainClass != null ? mainClass : string(versionJson, "mainClass", "net.minecraft.client.main.Main"));
 
-		command.addAll(gameArguments(versionJson, values));
+		java.util.Set<String> features = new java.util.LinkedHashSet<>();
+		if (quickPlay != null) {
+			features.add(quickPlay.feature());
+			values.put(quickPlay.placeholder(), quickPlay.target());
+		}
+
+		command.addAll(gameArguments(versionJson, values, features));
 		return command;
 	}
 
-	private static List<String> gameArguments(JsonObject versionJson, Map<String, String> values) {
+	/** Package-private so the quick-play argument selection can be tested against a real manifest. */
+	static List<String> gameArguments(JsonObject versionJson, Map<String, String> values,
+			java.util.Set<String> features) {
 		List<String> out = new ArrayList<>();
 		JsonElement arguments = versionJson.get("arguments");
 
@@ -166,11 +212,12 @@ public final class LaunchBuilder {
 						continue;
 					}
 
-					// Conditional arguments cover things like demo mode and a fixed
-					// window size. None of their conditions apply to a normal launch, so
-					// a plain rule check is enough.
+					// Conditional arguments cover demo mode, a fixed window size, and the
+					// four quick-play flags. The last of those are why the enabled set is
+					// threaded through: the game refuses to start when given more than one,
+					// so exactly the one asked for may pass and its siblings may not.
 					JsonObject conditional = element.getAsJsonObject();
-					if (!LibraryResolver.allowed(conditional.getAsJsonArray("rules"))) {
+					if (!LibraryResolver.allowed(conditional.getAsJsonArray("rules"), features)) {
 						continue;
 					}
 					JsonElement value = conditional.get("value");

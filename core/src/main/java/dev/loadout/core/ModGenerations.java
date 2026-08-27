@@ -50,11 +50,34 @@ public final class ModGenerations {
 		this.instance = instanceDir;
 	}
 
-	/** Where a new generation should be written. Named by time so they sort chronologically. */
+	/**
+	 * Where a new generation should be written. Always an empty folder that did not exist.
+	 *
+	 * <p>Named by time so the folders sort chronologically, with a counter because a clock
+	 * in milliseconds is not fine enough to separate them. Toggling several mods at once
+	 * restages several times in a row and lands inside one millisecond easily -- and
+	 * reusing a folder would leave the earlier staging's links in it, so a mod switched
+	 * off would still be there to load. The counter is fixed width so the plain string
+	 * ordering the rest of this class relies on stays chronological.
+	 */
 	public Path create() throws IOException {
-		Path dir = root().resolve(PREFIX + System.currentTimeMillis());
-		Files.createDirectories(dir);
-		return dir;
+		long now = System.currentTimeMillis();
+		Path root = root();
+		Files.createDirectories(root);
+
+		for (int counter = 0; counter < 100; counter++) {
+			Path dir = root.resolve(String.format("%s%013d-%02d", PREFIX, now, counter));
+			try {
+				// createDirectory, not createDirectories: this one has to fail if the
+				// folder is already there, which is the whole point of the loop.
+				return Files.createDirectory(dir);
+			} catch (java.nio.file.FileAlreadyExistsException e) {
+				// Taken by a staging a moment ago. Try the next.
+			}
+		}
+
+		// A hundred in one millisecond is not restaging, it is a loop somewhere.
+		throw new IOException("Could not find a free mod generation under " + root);
 	}
 
 	/** The most recent generation, or empty when none has been written yet. */

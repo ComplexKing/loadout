@@ -71,7 +71,7 @@ public final class LibraryResolver {
 
 		for (JsonElement element : libraries) {
 			JsonObject library = element.getAsJsonObject();
-			if (!allowed(library.getAsJsonArray("rules"))) {
+			if (!allowed(library.getAsJsonArray("rules"), java.util.Set.of())) {
 				continue;
 			}
 
@@ -177,7 +177,12 @@ public final class LibraryResolver {
 	 * expresses "everywhere except macOS" as allow-then-disallow. No rules at all means
 	 * allowed; rules present with none matching means denied.
 	 */
+	/** No features enabled, which is every caller that does not care about quick play. */
 	static boolean allowed(JsonArray rules) {
+		return allowed(rules, java.util.Set.of());
+	}
+
+	static boolean allowed(JsonArray rules, java.util.Set<String> enabledFeatures) {
 		if (rules == null || rules.isEmpty()) {
 			return true;
 		}
@@ -185,7 +190,7 @@ public final class LibraryResolver {
 		boolean permitted = false;
 		for (JsonElement element : rules) {
 			JsonObject rule = element.getAsJsonObject();
-			if (!ruleMatches(rule)) {
+			if (!ruleMatches(rule, enabledFeatures)) {
 				continue;
 			}
 			permitted = "allow".equals(string(rule, "action"));
@@ -193,7 +198,7 @@ public final class LibraryResolver {
 		return permitted;
 	}
 
-	private static boolean ruleMatches(JsonObject rule) {
+	private static boolean ruleMatches(JsonObject rule, java.util.Set<String> enabledFeatures) {
 		// Feature conditions gate optional launch modes: demo, a fixed window size, and
 		// the quick-play variants that jump straight into a world or server. Loadout
 		// requests none of them, so any rule depending on a feature does not apply.
@@ -205,7 +210,16 @@ public final class LibraryResolver {
 		// have already loaded, which makes it look like a mod problem.
 		JsonElement features = rule.get("features");
 		if (features != null && features.isJsonObject() && !features.getAsJsonObject().isEmpty()) {
-			return false;
+			// A rule guarded by features applies only when every one it names is switched
+			// on. Refusing all of them was the earlier fix for emitting every quick-play
+			// argument at once; refusing them selectively is what lets one be used.
+			for (var entry : features.getAsJsonObject().entrySet()) {
+				boolean wanted = entry.getValue().isJsonPrimitive()
+						&& entry.getValue().getAsBoolean();
+				if (wanted != enabledFeatures.contains(entry.getKey())) {
+					return false;
+				}
+			}
 		}
 
 		JsonElement os = rule.get("os");

@@ -906,6 +906,22 @@ final class Routes {
 		Profile profile = require(profileName);
 		String username = Json.optionalString(body, "username", null);
 
+		// Where to go once started. Sent by the in-game mod when somebody applies a change
+		// from inside a session: a mod change only takes effect next launch, so the next
+		// launch has to put them back where they were or nobody applies one twice.
+		LaunchBuilder.QuickPlay quickPlay = null;
+		JsonObject where = body.getAsJsonObject("quickPlay");
+		if (where != null) {
+			String type = Json.optionalString(where, "type", null);
+			String target = Json.optionalString(where, "target", null);
+
+			if (target != null && !target.isBlank()
+					&& ("multiplayer".equals(type) || "singleplayer".equals(type))) {
+				quickPlay = new LaunchBuilder.QuickPlay(type, target);
+			}
+		}
+		final LaunchBuilder.QuickPlay rejoin = quickPlay;
+
 		String jobId = this.jobs.submit("launch", profileName, reporter -> {
 			GameInstaller installer = new GameInstaller(this.home.minecraftRoot());
 
@@ -994,10 +1010,14 @@ final class Routes {
 				withApi.add("-Dloadout.instance.name=" + profileName);
 			}
 
+			if (rejoin != null) {
+				reporter.log("Rejoining " + rejoin.target());
+			}
+
 			List<String> command = LaunchBuilder.build(
 					javaBinary, versionJson, fabric, installer,
 					profile.minecraftVersion(), this.home.profileDir(profileName), account,
-					withApi);
+					withApi, rejoin);
 
 			reporter.log("Heap: " + String.join(" ", jvmArgs));
 
