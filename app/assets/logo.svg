@@ -1,9 +1,10 @@
 <!--
-	The Loadout mark: an L with two slots cut into its foot.
+	The Loadout mark: a cube with one block lifted clear of it.
 
-	The slots stop short of the bottom on purpose. Cut through, the three pieces read as a
-	bar chart rather than a letter; connected, the shape stays an L and the slots say what
-	the launcher is for.
+	Minecraft and modularity in one shape. The gap between the two is cut rather than
+	implied, because at sixteen pixels a shape that merely almost touches has merged.
+
+	Generated from the same geometry as the PNGs, so the two cannot drift apart.
 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Loadout">
 	<defs>
@@ -11,14 +12,29 @@
 			<stop offset="0" stop-color="#46da91"/>
 			<stop offset="1" stop-color="#35c37d"/>
 		</linearGradient>
-		<mask id="loadout-mark">
-			<rect width="512" height="512" fill="black"/>
-			<rect x="150" y="112" width="82" height="288" rx="18" fill="white"/>
-			<rect x="150" y="318" width="288" height="82" rx="18" fill="white"/>
-			<rect x="242" y="300" width="22" height="72" rx="11" fill="black"/>
-			<rect x="334" y="300" width="22" height="72" rx="11" fill="black"/>
-		</mask>
+		<clipPath id="loadout-clip">
+			<rect width="512" height="512" rx="112"/>
+		</clipPath>
 	</defs>
+
 	<rect width="512" height="512" rx="112" fill="url(#loadout-badge)"/>
-	<rect width="512" height="512" fill="#06251a" mask="url(#loadout-mark)"/>
+
+	<g clip-path="url(#loadout-clip)">
+		<!-- The cube below, with the lifted block's halo taken back out of it. -->
+		<mask id="loadout-halo">
+			<rect width="512" height="512" fill="white"/>
+			<polygon points="256.0,57.1 393.8,126.0 256.0,194.9 118.2,126.0" fill="black"/>
+			<polygon points="118.2,126.0 256.0,194.9 256.0,276.9 118.2,208.0" fill="black"/>
+			<polygon points="393.8,126.0 256.0,194.9 256.0,276.9 393.8,208.0" fill="black"/>
+		</mask>
+		<g mask="url(#loadout-halo)">
+			<polygon points="88.0,284.0 256.0,368.0 256.0,468.0 88.0,384.0" fill="#06251a"/>
+			<polygon points="424.0,284.0 256.0,368.0 256.0,468.0 424.0,384.0" fill="#06251a"/>
+			<polygon points="256.0,200.0 424.0,284.0 256.0,368.0 88.0,284.0" fill="#15553b"/>
+		</g>
+
+		<polygon points="168.6,132.0 256.0,175.7 256.0,227.7 168.6,184.0" fill="#06251a"/>
+		<polygon points="343.4,132.0 256.0,175.7 256.0,227.7 343.4,184.0" fill="#06251a"/>
+		<polygon points="256.0,88.3 343.4,132.0 256.0,175.7 168.6,132.0" fill="#15553b"/>
+	</g>
 </svg>

@@ -3,8 +3,10 @@
 A Minecraft profile manager and launcher for Java Edition, focused on the thing other
 launchers handle worst: **moving a set of mods from one Minecraft version to another.**
 
-> Early but working. Installs and launches Minecraft with Fabric, and migrates profiles
-> between versions against the live Modrinth API. Command line only so far.
+> Early but working. Installs and launches Minecraft with Fabric, signs in with a
+> Microsoft account, migrates profiles between versions against the live Modrinth and
+> CurseForge APIs, and ships a desktop interface and a companion mod that manages mods
+> from inside a running game.
 
 ## The problem it solves
 
@@ -150,7 +152,7 @@ it without reimplementing anything. It prints its port and access token as one l
 JSON, then runs until stopped:
 
 ```json
-{"ready":true,"port":47399,"token":"...","pid":24844}
+{"ready":true,"port":47399,"token":"...","gameToken":"...","pid":24844}
 ```
 
 Every request needs `Authorization: Bearer <token>`. Long operations — install, migrate,
@@ -159,6 +161,45 @@ server-sent events.
 
 The server is loopback-only, sends no CORS headers, and checks the `Host` header, so a
 web page cannot reach it even while the launcher is running.
+
+### Two tokens
+
+There are two, and the second is the interesting one. `gameToken` is handed to the game
+Loadout starts, so the [companion mod](https://github.com/ComplexKing/loadout-mod) can
+manage mods from inside a session. Anything in that JVM can read a system property, so
+whatever goes there has to be something it is acceptable for *every* mod in the pack to
+hold — which means it reaches a deliberately small set of endpoints and nothing else:
+
+| The game token can | It cannot |
+| --- | --- |
+| read this instance, search, install | touch accounts |
+| turn mods on and off for next launch | change settings |
+| report that the client finished starting | delete anything |
+| start a successor to itself, to apply a change | |
+
+Both are compared in constant time, and both are always checked, so timing cannot
+distinguish which one was wrong.
+
+## When a game stops starting
+
+Adding a mod and finding the game will not start is the failure this launcher is most
+able to help with, because it knows something the crash log does not: which mod set
+worked last time.
+
+The companion mod reports in once the client is up — Fabric resolved the list, every mixin
+applied, the window exists. Nothing outside the process can tell that apart from a game
+that died before the window opened; both look like a process that was running and then was
+not. The first time a given set reports in, a snapshot is taken.
+
+So when a launch exits badly inside the first minute without ever reporting, the interface
+says so and offers the last set that did start. It offers; it does not act. Rewriting
+somebody's mod list because a process exited badly is help that is indistinguishable from
+a bug, and the diagnosis is a good guess rather than a fact.
+
+It also stays quiet when it should. A game that ran for an hour and then crashed *did*
+start, so its mods are not the answer. And a failed start with the same mods that worked
+last time says exactly that, rather than offering a rollback that would change nothing and
+send somebody looking in the wrong place.
 
 ## Desktop app
 
@@ -190,7 +231,14 @@ renders titles and descriptions written by strangers on two public registries.
 
 ## Not done yet
 
-- **Microsoft sign-in** — pending an approved Azure application.
+- **In-game browsing.** The companion mod lists and toggles what is installed, but adding
+  something new still means the launcher window.
+- **Rejoining a Realm.** Quick play can reopen one, but by realm id rather than anything
+  the client hands out, and a rejoin that opens the wrong world is worse than one that
+  admits it cannot.
+- **Shader packs**, which are a loader's concept rather than the game's — and the loader
+  that reads `shaderpacks/` does not run on 26.2's Vulkan path at all. Loadout installs
+  them into the folder for whenever that changes.
 
 ## Licence
 

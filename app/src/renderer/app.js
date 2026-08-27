@@ -730,7 +730,7 @@ function show(view) {
 
 async function loadInstances() {
 	const data = await call(api.profiles.list(), 'Could not load instances');
-	if (!data) return;
+	if (!data) return false;
 
 	state.instances = data.profiles;
 	renderRail();
@@ -744,6 +744,7 @@ async function loadInstances() {
 		state.current = null;
 		show('home');
 	}
+	return true;
 }
 
 function renderRail() {
@@ -2779,6 +2780,11 @@ function wire() {
  * Guarded because it is reached two ways -- the ready event and the health check below --
  * and whichever arrives second would otherwise reload everything and send the view back
  * to home, which is not harmless once someone has clicked into an instance.
+ *
+ * The guard is released again if the load failed. It used to latch on the attempt rather
+ * than on the result, so a first try that lost a race with the backend coming up left the
+ * flag set, the ready event arriving afterwards did nothing, and the window sat there
+ * empty for the rest of the session -- looking exactly like an install with no instances.
  */
 let started = false;
 async function start() {
@@ -2790,7 +2796,12 @@ async function start() {
 	applyDensity(stored('density', 'comfortable'));
 	renderAppearance();
 
-	await loadInstances();
+	if (!await loadInstances()) {
+		started = false;
+		show('home');
+		return;
+	}
+
 	renderAccountChip();
 	show('home');
 }

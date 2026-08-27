@@ -769,12 +769,15 @@ img.art { color: transparent; }
 	26px inset the hero has -- a full-bleed strip there reads as part of the chrome rather
 	than as something about this instance.
 */
-/* The mark beside the wordmark. Accent-coloured, since it is the one piece of branding
-   on screen and the titlebar is otherwise deliberately quiet. */
+/* The mark beside the wordmark. It carries its own badge, so it is sized rather than
+   coloured -- the one piece of branding on screen, in a titlebar that is otherwise
+   deliberately quiet. */
 .brand-mark {
-	color: var(--accent);
-	margin-right: 7px;
-	vertical-align: -2px;
+	width: 17px;
+	height: 17px;
+	margin-right: 9px;
+	border-radius: 4px;
+	vertical-align: -3px;
 }
 
 #launch-warning {
