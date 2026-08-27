@@ -6,8 +6,10 @@ import java.io.IOException;
 import java.io.Reader;
 import java.io.Writer;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
@@ -33,6 +35,15 @@ import java.util.stream.Stream;
 public final class LoadoutHome {
 	private static final DateTimeFormatter SNAPSHOT_STAMP =
 			DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH-mm-ss").withZone(ZoneId.systemDefault());
+
+	/**
+	 * How many snapshots one second can hold before something is clearly wrong.
+	 *
+	 * <p>A person cannot make a hundred changes in a second. A script can, and if one
+	 * manages it the honest outcome is an error rather than a snapshot quietly landing on
+	 * top of another.
+	 */
+	private static final int SAME_SECOND_LIMIT = 100;
 
 	private static final Gson GSON = new GsonBuilder().setPrettyPrinting().create();
 
@@ -227,15 +238,41 @@ public final class LoadoutHome {
 	 * @return the snapshot's id
 	 */
 	public String snapshot(Profile profile, String reason) throws IOException {
-		String id = SNAPSHOT_STAMP.format(Instant.now());
+		// Read once and used for both the id and the recorded time, so a snapshot cannot
+		// end up named for one second and stamped with the next.
+		Instant now = Instant.now();
+		String stamp = SNAPSHOT_STAMP.format(now);
+
 		Path dir = this.root.resolve("snapshots").resolve(profile.name());
 		Files.createDirectories(dir);
 
-		Snapshot snapshot = new Snapshot(id, Instant.now().toString(), reason, profile);
-		try (Writer writer = Files.newBufferedWriter(dir.resolve(id + ".json"), StandardCharsets.UTF_8)) {
-			GSON.toJson(snapshot, writer);
+		// The stamp is only accurate to the second, and snapshots are taken automatically
+		// before every change -- a rollback takes one immediately before restoring, and a
+		// scripted sequence of installs lands several inside one second easily. Without a
+		// counter they would all be the same filename and each would replace the last, so
+		// the record that exists to make a change undoable would lose the very state that
+		// was about to be undone.
+		//
+		// Fixed width because snapshots() orders them by comparing the id strings, and a
+		// counter that grew from "9" to "10" would sort the tenth before the second.
+		for (int counter = 0; counter < SAME_SECOND_LIMIT; counter++) {
+			String id = String.format("%s-%02d", stamp, counter);
+			Snapshot snapshot = new Snapshot(id, now.toString(), reason, profile);
+
+			// CREATE_NEW rather than checking whether the file is there first: the check
+			// and the write would be two steps with a gap between them, and this is one.
+			try (Writer writer = Files.newBufferedWriter(dir.resolve(id + ".json"),
+					StandardCharsets.UTF_8, StandardOpenOption.CREATE_NEW,
+					StandardOpenOption.WRITE)) {
+				GSON.toJson(snapshot, writer);
+				return id;
+			} catch (FileAlreadyExistsException e) {
+				// Taken a moment ago. Try the next.
+			}
 		}
-		return id;
+
+		throw new IOException("Could not find a free snapshot id for '" + profile.name()
+				+ "' at " + stamp);
 	}
 
 	public List<Snapshot> snapshots(String profileName) throws IOException {
