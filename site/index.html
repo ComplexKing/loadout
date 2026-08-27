@@ -1,0 +1,881 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="A Minecraft launcher whose companion mod puts the mod list inside the game. Toggle a mod and land back on the same server about ten seconds later.">
+	<title>Loadout</title>
+	<link rel="preconnect" href="https://fonts.googleapis.com">
+	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
+</head>
+<body>
+<style>
+	/*
+		Palette: near-black with a green bias in the neutrals rather than a pure grey, so
+		the accent looks native to the ground rather than dropped onto it. Light theme is
+		the same hues rotated, not an inversion.
+	*/
+	:root {
+		--ground: #f2f6f3;
+		--surface: #ffffff;
+		--surface-2: #e9efeb;
+		--line: #d3ded7;
+		--line-soft: #e3ebe6;
+		--ink: #101613;
+		--ink-2: #3d4a43;
+		--muted: #55665d;
+		--accent: #137442;
+		--accent-2: #0d5f36;
+		--accent-ink: #ffffff;
+		--accent-wash: rgba(19, 116, 66, 0.06);
+		--warn: #8a5205;
+		--hud-bg: #0a0d10;
+		--hud-line: #2a3540;
+		--grid: rgba(16, 22, 19, 0.055);
+		--shadow: 0 1px 2px rgba(16, 22, 19, 0.05), 0 12px 32px -12px rgba(16, 22, 19, 0.16);
+
+		--display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+		--body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+		--mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+		--measure: 62ch;
+		--pad: clamp(20px, 5vw, 56px);
+	}
+
+	:root:not([data-theme="light"]) {
+		color-scheme: dark;
+	}
+
+	@media (prefers-color-scheme: dark) {
+		:root:not([data-theme="light"]) {
+			--ground: #0d1014;
+			--surface: #141a1e;
+			--surface-2: #1a2126;
+			--line: #263038;
+			--line-soft: #1d252b;
+			--ink: #e8f1eb;
+			--ink-2: #b9c9c0;
+			--muted: #869a90;
+			--accent: #3ed17e;
+			--accent-2: #58e394;
+			--accent-ink: #062015;
+			--accent-wash: rgba(62, 209, 126, 0.12);
+			--warn: #e0a63f;
+			--hud-bg: #05080b;
+			--hud-line: #384a58;
+			--grid: rgba(232, 241, 235, 0.05);
+			--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 44px -16px rgba(0, 0, 0, 0.7);
+		}
+	}
+
+	:root[data-theme="dark"] {
+		color-scheme: dark;
+		--ground: #0d1014;
+		--surface: #141a1e;
+		--surface-2: #1a2126;
+		--line: #263038;
+		--line-soft: #1d252b;
+		--ink: #e8f1eb;
+		--ink-2: #b9c9c0;
+		--muted: #869a90;
+		--accent: #3ed17e;
+		--accent-2: #58e394;
+		--accent-ink: #062015;
+		--accent-wash: rgba(62, 209, 126, 0.12);
+		--warn: #e0a63f;
+		--hud-bg: #05080b;
+		--hud-line: #384a58;
+		--grid: rgba(232, 241, 235, 0.05);
+		--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 44px -16px rgba(0, 0, 0, 0.7);
+	}
+
+	* { box-sizing: border-box; }
+
+	body {
+		margin: 0;
+		background: var(--ground);
+		color: var(--ink);
+		font-family: var(--body);
+		font-size: 17px;
+		line-height: 1.62;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	/*
+		An isometric lattice, because the thing this launches is made of cubes. Two 30-degree
+		gradient sets plus a vertical one give the same three axes the logo is drawn on.
+	*/
+	.iso {
+		position: relative;
+		isolation: isolate;
+	}
+	.iso::before {
+		content: "";
+		position: absolute;
+		inset: 0;
+		z-index: -1;
+		background-image:
+			repeating-linear-gradient(30deg, var(--grid) 0 1px, transparent 1px 64px),
+			repeating-linear-gradient(-30deg, var(--grid) 0 1px, transparent 1px 64px),
+			repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px 64px);
+		mask-image: radial-gradient(120% 80% at 50% 0%, #000 20%, transparent 75%);
+		pointer-events: none;
+	}
+
+	.wrap {
+		max-width: 1080px;
+		margin: 0 auto;
+		padding-inline: var(--pad);
+	}
+
+	h1, h2, h3 {
+		font-family: var(--display);
+		font-weight: 800;
+		letter-spacing: -0.022em;
+		text-wrap: balance;
+		margin: 0;
+		line-height: 1.08;
+	}
+
+	p { margin: 0; max-width: var(--measure); }
+
+	a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
+	a:focus-visible, button:focus-visible {
+		outline: 2px solid var(--accent);
+		outline-offset: 3px;
+		border-radius: 4px;
+	}
+
+	.eyebrow {
+		font-family: var(--mono);
+		font-size: 11.5px;
+		font-weight: 500;
+		letter-spacing: 0.13em;
+		text-transform: uppercase;
+		color: var(--muted);
+		margin: 0;
+	}
+
+	/* ---------------------------------------------------------------- masthead */
+
+	.masthead {
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		padding-block: 26px;
+	}
+	.masthead .name {
+		font-family: var(--display);
+		font-weight: 800;
+		font-size: 19px;
+		letter-spacing: -0.02em;
+	}
+	.masthead nav {
+		margin-left: auto;
+		display: flex;
+		gap: 26px;
+		font-size: 14.5px;
+	}
+	.masthead nav a { color: var(--ink-2); text-decoration: none; }
+	.masthead nav a:hover { color: var(--accent); }
+	@media (max-width: 620px) { .masthead nav { display: none; } }
+
+	.logo { width: 30px; height: 30px; border-radius: 7px; display: block; }
+
+	/* ---------------------------------------------------------------- hero */
+
+	.hero {
+		display: grid;
+		gap: clamp(38px, 6vw, 64px);
+		padding-block: clamp(48px, 8vw, 96px) clamp(56px, 9vw, 104px);
+		grid-template-columns: minmax(0, 1fr);
+	}
+	@media (min-width: 940px) {
+		.hero { grid-template-columns: minmax(0, 1.06fr) minmax(0, 1fr); align-items: center; }
+	}
+
+	.hero h1 {
+		font-size: clamp(42px, 7.2vw, 76px);
+		font-weight: 800;
+		margin-bottom: 22px;
+	}
+	.hero h1 em {
+		font-style: normal;
+		color: var(--accent);
+	}
+	.hero .lede {
+		font-size: clamp(17px, 2vw, 19.5px);
+		color: var(--ink-2);
+		margin-bottom: 30px;
+	}
+
+	.cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+	.btn {
+		font-family: var(--body);
+		font-size: 15px;
+		font-weight: 600;
+		padding: 11px 20px;
+		border-radius: 9px;
+		border: 1px solid transparent;
+		text-decoration: none;
+		display: inline-flex;
+		align-items: center;
+		gap: 9px;
+		transition: transform .12s ease, background .12s ease, border-color .12s ease;
+	}
+	.btn.primary { background: var(--accent); color: var(--accent-ink); }
+	.btn.primary:hover { background: var(--accent-2); transform: translateY(-1px); }
+	.btn.ghost { border-color: var(--line); color: var(--ink); background: var(--surface); }
+	.btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+	.hero-note {
+		font-family: var(--mono);
+		font-size: 12.5px;
+		color: var(--muted);
+		margin-top: 20px;
+	}
+
+	/* --------------------------------------------------- the in-game panel mock */
+
+	.panel {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 14px;
+		box-shadow: var(--shadow);
+		overflow: hidden;
+	}
+	.panel-bar {
+		display: flex;
+		align-items: center;
+		gap: 8px;
+		padding: 11px 14px;
+		border-bottom: 1px solid var(--line-soft);
+		background: var(--surface-2);
+		font-family: var(--mono);
+		font-size: 11.5px;
+		color: var(--muted);
+		letter-spacing: 0.04em;
+	}
+	.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
+	.dot.live { background: var(--accent); }
+
+	.rows { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+	.row {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 12px;
+		padding: 10px 12px;
+		border-radius: 9px;
+		background: var(--surface-2);
+	}
+	.row .who { min-width: 0; }
+	.row .mod-name { font-weight: 600; font-size: 15px; }
+	.row .mod-file {
+		font-family: var(--mono);
+		font-size: 11.5px;
+		color: var(--muted);
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+	.pill {
+		font-family: var(--mono);
+		font-size: 11px;
+		font-weight: 500;
+		padding: 4px 9px;
+		border-radius: 999px;
+		letter-spacing: 0.03em;
+		white-space: nowrap;
+	}
+	.pill.on { background: var(--accent-wash); color: var(--accent); }
+	.pill.off { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
+	.pill.queued { background: rgba(224, 166, 63, 0.14); color: var(--warn); }
+
+	.panel-foot {
+		border-top: 1px solid var(--line-soft);
+		padding: 13px 14px;
+		display: flex;
+		align-items: center;
+		gap: 12px;
+		flex-wrap: wrap;
+		background: var(--surface-2);
+	}
+	.panel-foot .queued-note {
+		font-size: 13px;
+		color: var(--warn);
+		font-weight: 500;
+	}
+	.apply {
+		margin-left: auto;
+		font-family: var(--body);
+		font-size: 13.5px;
+		font-weight: 600;
+		background: var(--accent);
+		color: var(--accent-ink);
+		border: 0;
+		border-radius: 8px;
+		padding: 8px 15px;
+		cursor: pointer;
+	}
+	.apply:hover { background: var(--accent-2); }
+
+	/* ---------------------------------------------------------------- sections */
+
+	section { padding-block: clamp(56px, 8vw, 96px); }
+	section + section { border-top: 1px solid var(--line-soft); }
+
+	.section-head { margin-bottom: clamp(30px, 4vw, 46px); display: grid; gap: 14px; }
+	.section-head h2 { font-size: clamp(28px, 4vw, 40px); }
+	.section-head p { color: var(--ink-2); }
+
+	.cards {
+		display: grid;
+		gap: 18px;
+		grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
+	}
+	.card {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 13px;
+		padding: 24px 22px;
+		display: grid;
+		gap: 11px;
+		align-content: start;
+	}
+	.card h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.014em; }
+	.card p { font-size: 15px; color: var(--ink-2); }
+	.card .when {
+		font-family: var(--mono);
+		font-size: 11px;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+	}
+	.card .when.now { color: var(--accent); }
+	.card .when.next { color: var(--warn); }
+
+	/* ---------------------------------------------------------------- speed */
+
+	.speed-grid {
+		display: grid;
+		gap: clamp(28px, 4vw, 48px);
+		grid-template-columns: minmax(0, 1fr);
+		align-items: start;
+	}
+	@media (min-width: 880px) { .speed-grid { grid-template-columns: 1fr 1.15fr; } }
+
+	.bigstat {
+		display: grid;
+		gap: 6px;
+		padding: 26px 24px;
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-radius: 13px;
+	}
+	.bigstat .from {
+		font-family: var(--mono);
+		font-size: 15px;
+		color: var(--muted);
+		text-decoration: line-through;
+		text-decoration-color: var(--muted);
+	}
+	.bigstat .to {
+		font-family: var(--display);
+		font-weight: 800;
+		font-size: clamp(46px, 8vw, 68px);
+		line-height: 1;
+		color: var(--accent);
+		letter-spacing: -0.03em;
+	}
+	.bigstat .cap { font-size: 14.5px; color: var(--ink-2); }
+
+	.table-scroll { overflow-x: auto; }
+	table {
+		width: 100%;
+		border-collapse: collapse;
+		font-size: 14.5px;
+		min-width: 440px;
+	}
+	th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line-soft); }
+	th {
+		font-family: var(--mono);
+		font-size: 10.5px;
+		letter-spacing: 0.11em;
+		text-transform: uppercase;
+		color: var(--muted);
+		font-weight: 500;
+	}
+	td.num {
+		font-family: var(--mono);
+		font-variant-numeric: tabular-nums;
+		text-align: right;
+		white-space: nowrap;
+	}
+	td.was { color: var(--muted); }
+	td.now { color: var(--accent); font-weight: 500; }
+	tbody tr:last-child td { border-bottom: 0; }
+	caption {
+		caption-side: bottom;
+		padding-top: 14px;
+		font-size: 13px;
+		color: var(--muted);
+		text-align: left;
+	}
+
+	/* ---------------------------------------------------------------- overlay demo */
+
+	.overlay-demo {
+		font-family: var(--mono);
+		font-size: 13px;
+		background: var(--hud-bg);
+		color: #e0e0e0;
+		border: 1px solid var(--hud-line);
+		border-radius: 12px;
+		padding: 16px 18px;
+		display: grid;
+		gap: 5px;
+		overflow-x: auto;
+	}
+	.overlay-demo .dim { color: #9a9a9a; }
+	.overlay-demo b { color: #fff; font-weight: 500; }
+	.overlay-demo .hi { color: #58e394; }
+
+	/* ---------------------------------------------------------------- honesty */
+
+	.cant {
+		background: var(--surface);
+		border: 1px solid var(--line);
+		border-left: 3px solid var(--warn);
+		border-radius: 0 13px 13px 0;
+		padding: 26px clamp(22px, 3vw, 34px);
+		display: grid;
+		gap: 14px;
+	}
+	.cant h3 { font-size: 21px; font-weight: 600; }
+	.cant p { color: var(--ink-2); font-size: 15.5px; }
+
+	/* ---------------------------------------------------------------- install */
+
+	.steps { display: grid; gap: 20px; counter-reset: step; }
+	.step {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		gap: 16px;
+		align-items: start;
+	}
+	.step::before {
+		counter-increment: step;
+		content: counter(step);
+		font-family: var(--mono);
+		font-size: 12px;
+		font-weight: 700;
+		width: 26px;
+		height: 26px;
+		display: grid;
+		place-items: center;
+		border-radius: 7px;
+		background: var(--accent-wash);
+		color: var(--accent);
+		margin-top: 3px;
+	}
+	.step h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 5px; }
+	.step p { font-size: 14.5px; color: var(--ink-2); }
+
+	pre {
+		font-family: var(--mono);
+		font-size: 13px;
+		background: var(--surface-2);
+		border: 1px solid var(--line-soft);
+		border-radius: 9px;
+		padding: 12px 14px;
+		margin: 10px 0 0;
+		overflow-x: auto;
+		color: var(--ink);
+	}
+	code { font-family: var(--mono); font-size: 0.92em; }
+	p code, li code {
+		background: var(--surface-2);
+		border: 1px solid var(--line-soft);
+		border-radius: 5px;
+		padding: 1px 5px;
+	}
+
+	kbd {
+		font-family: var(--mono);
+		font-size: 11.5px;
+		border: 1px solid var(--line);
+		border-bottom-width: 2px;
+		border-radius: 5px;
+		padding: 2px 6px;
+		background: var(--surface);
+		color: var(--ink);
+	}
+
+	/* ---------------------------------------------------------------- footer */
+
+	footer {
+		border-top: 1px solid var(--line-soft);
+		padding-block: 34px 46px;
+		display: flex;
+		flex-wrap: wrap;
+		gap: 14px 26px;
+		align-items: center;
+		font-size: 13.5px;
+		color: var(--muted);
+	}
+	footer .spacer { margin-left: auto; }
+	footer a { color: var(--ink-2); text-decoration: none; }
+	footer a:hover { color: var(--accent); }
+
+	@media (prefers-reduced-motion: reduce) {
+		* { animation: none !important; transition: none !important; }
+	}
+</style>
+
+<div class="iso">
+	<div class="wrap">
+		<header class="masthead">
+			<svg class="logo" viewBox="0 0 512 512" aria-hidden="true">
+				<defs>
+					<linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+						<stop offset="0" stop-color="#46da91"/><stop offset="1" stop-color="#35c37d"/>
+					</linearGradient>
+				</defs>
+				<rect width="512" height="512" rx="112" fill="url(#lg)"/>
+				<polygon points="90.6,282.0 256.0,366.0 256.0,466.0 90.6,382.0" fill="#06251a"/>
+				<polygon points="421.4,282.0 256.0,366.0 256.0,466.0 421.4,382.0" fill="#06251a"/>
+				<polygon points="256.0,198.0 421.4,282.0 256.0,366.0 90.6,282.0" fill="#15553b"/>
+				<polygon points="170.6,132.0 256.0,175.7 256.0,227.7 170.6,184.0" fill="#06251a"/>
+				<polygon points="341.4,132.0 256.0,175.7 256.0,227.7 341.4,184.0" fill="#06251a"/>
+				<polygon points="256.0,88.3 341.4,132.0 256.0,175.7 170.6,132.0" fill="#15553b"/>
+			</svg>
+			<span class="name">Loadout</span>
+			<nav>
+				<a href="#what">What it does</a>
+				<a href="#speed">Speed</a>
+				<a href="#limits">Limits</a>
+				<a href="#install">Install</a>
+			</nav>
+		</header>
+
+		<div class="hero">
+			<div>
+				<p class="eyebrow">Minecraft&nbsp;26.2 · Fabric · Client-side</p>
+				<h1 style="margin-top:18px">Change a mod without <em>losing your place</em>.</h1>
+				<p class="lede">
+					Loadout is a Minecraft launcher whose companion mod puts the mod list
+					inside the game. Toggle something, press one button, and you are back on
+					the same server about ten seconds later — instead of quitting to a menu,
+					finding a launcher window, and hunting for the server again.
+				</p>
+				<div class="cta-row">
+					<a class="btn primary" href="https://github.com/ComplexKing/loadout">Get Loadout</a>
+					<a class="btn ghost" href="#install">How it works</a>
+				</div>
+				<p class="hero-note">Open source · MIT · Not affiliated with Mojang</p>
+			</div>
+
+			<div class="panel" role="img"
+			     aria-label="The in-game mod screen: Sodium and Iris on, Distant Horizons queued off, with an Apply and rejoin button.">
+				<div class="panel-bar">
+					<span class="dot live"></span>
+					<span>loadout · my survival world</span>
+				</div>
+				<div class="rows">
+					<div class="row">
+						<div class="who">
+							<div class="mod-name">sodium</div>
+							<div class="mod-file">sodium-0.6.13+mc26.2.jar</div>
+						</div>
+						<span class="pill on">On</span>
+					</div>
+					<div class="row">
+						<div class="who">
+							<div class="mod-name">iris</div>
+							<div class="mod-file">iris-1.8.11+mc26.2.jar</div>
+						</div>
+						<span class="pill on">On</span>
+					</div>
+					<div class="row">
+						<div class="who">
+							<div class="mod-name">distanthorizons</div>
+							<div class="mod-file">DistantHorizons-2.3.4-26.2.jar</div>
+						</div>
+						<span class="pill queued">Off next launch</span>
+					</div>
+					<div class="row">
+						<div class="who">
+							<div class="mod-name">modmenu</div>
+							<div class="mod-file">modmenu-20.0.1.jar</div>
+						</div>
+						<span class="pill on">On</span>
+					</div>
+				</div>
+				<div class="panel-foot">
+					<span class="queued-note">1 change will apply next launch</span>
+					<button class="apply" type="button">Apply and rejoin play.example.net</button>
+				</div>
+			</div>
+		</div>
+	</div>
+</div>
+
+<div class="wrap">
+
+	<section id="what">
+		<div class="section-head">
+			<p class="eyebrow">Two halves, kept apart on purpose</p>
+			<h2>Some changes happen now. Some happen next launch. The screen tells you which.</h2>
+			<p>
+				Fabric decides what is loaded during bootstrap, before any mod's code exists —
+				so nothing can add or remove a mod mid-session, and a launcher that implied
+				otherwise would be lying. Resource packs are different: the game already knows
+				how to rebuild its resources. Mixing the two in one list would make both harder
+				to trust, so they get separate screens.
+			</p>
+		</div>
+
+		<div class="cards">
+			<article class="card">
+				<span class="when next">Applies next launch</span>
+				<h3>Mods</h3>
+				<p>
+					Toggle anything in the instance. The footer counts what is waiting rather
+					than pretending it has happened — and offers to spend the restart there and
+					then, straight back into the server or world you were in.
+				</p>
+			</article>
+			<article class="card">
+				<span class="when now">Applies immediately</span>
+				<h3>Resource packs</h3>
+				<p>
+					Switch a pack and the world looks different a second later. It runs through
+					Minecraft's own commit path, so a change made here is indistinguishable
+					from one made in the vanilla screen — including surviving the next launch.
+				</p>
+			</article>
+			<article class="card">
+				<span class="when now">Applies immediately</span>
+				<h3>Frame times</h3>
+				<p>
+					<kbd>F6</kbd> shows the slow tail rather than an average. An average
+					frames-per-second is exactly the statistic a stutter hides inside; the 1%
+					low is the number that moves when a setting actually helped.
+				</p>
+			</article>
+		</div>
+	</section>
+
+	<section id="crash">
+		<div class="section-head">
+			<p class="eyebrow">When it stops starting</p>
+			<h2>The launcher knows which mod set worked. The crash log does not.</h2>
+			<p>
+				The companion mod reports in once the client is up — Fabric resolved the list,
+				every mixin applied, the window exists. Nothing outside the process can tell
+				that apart from a game that died before the window opened. So when a launch
+				fails inside the first minute without ever reporting, Loadout can name the last
+				set that did start, and offer it.
+			</p>
+		</div>
+
+		<div class="cards">
+			<article class="card">
+				<h3>It offers. It does not act.</h3>
+				<p>
+					Rewriting your mod list because a process exited badly is help that is
+					indistinguishable from a bug. The diagnosis is a good guess, not a fact, so
+					a person decides.
+				</p>
+			</article>
+			<article class="card">
+				<h3>It stays quiet when it should</h3>
+				<p>
+					A game that ran an hour and then crashed did start, so its mods are not the
+					answer. A failed start with the same mods as last time says exactly that,
+					rather than sending you down the wrong path.
+				</p>
+			</article>
+			<article class="card">
+				<h3>Rolling back is instant</h3>
+				<p>
+					Snapshots are lists of hashes and every file already lives in a shared
+					store, so going back is relinking rather than re-downloading. No network,
+					under a second.
+				</p>
+			</article>
+		</div>
+	</section>
+
+	<section id="speed">
+		<div class="section-head">
+			<p class="eyebrow">Measured, not claimed</p>
+			<h2>Pressing Play should not be the slow part.</h2>
+			<p>
+				A warm launch — everything already installed, nothing to download — used to
+				spend about nine seconds in the launcher before Minecraft's JVM was even
+				spawned. All of it was re-learning something already known.
+			</p>
+		</div>
+
+		<div class="speed-grid">
+			<div class="bigstat">
+				<span class="from">8.9 s</span>
+				<span class="to">1.3 s</span>
+				<span class="cap">
+					Launcher work before the game process starts, on a warm instance.
+				</span>
+			</div>
+
+			<div>
+				<div class="table-scroll">
+					<table>
+						<thead>
+							<tr>
+								<th scope="col">What it was doing</th>
+								<th scope="col" style="text-align:right">Was</th>
+								<th scope="col" style="text-align:right">Now</th>
+							</tr>
+						</thead>
+						<tbody>
+							<tr>
+								<td>Identifying every JDK by running it</td>
+								<td class="num was">4421 ms</td>
+								<td class="num now">40 ms</td>
+							</tr>
+							<tr>
+								<td>Checking 5057 assets already on disk</td>
+								<td class="num was">1939 ms</td>
+								<td class="num now">0 ms</td>
+							</tr>
+							<tr>
+								<td>Re-fetching the Fabric profile</td>
+								<td class="num was">379 ms</td>
+								<td class="num now">17 ms</td>
+							</tr>
+							<tr>
+								<td>Refreshing the Microsoft session</td>
+								<td class="num was">~2000 ms</td>
+								<td class="num now">once per sitting</td>
+							</tr>
+						</tbody>
+						<caption>
+							The asset check built a fresh HTTP client per file — five thousand of
+							them, each with its own thread — to ask the filesystem a question and
+							then return without sending a request.
+						</caption>
+					</table>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<section id="overlay">
+		<div class="section-head">
+			<p class="eyebrow">The overlay</p>
+			<h2>One bad frame in a hundred is invisible in an average.</h2>
+			<p>
+				Sixty frames where fifty-nine take 10&nbsp;ms and one takes 400&nbsp;ms average
+				out to something that looks fine — and the 400&nbsp;ms frame is the entire
+				problem. Change a memory setting or a garbage collector preset, play for a few
+				minutes, and watch whether the 1% low moves. If it does not, the setting did
+				not help.
+			</p>
+		</div>
+
+		<div class="overlay-demo">
+			<div><b>8.2 ms avg</b> · <span class="hi">31.4 ms 1% low</span> · 96 ms worst</div>
+			<div class="dim">121 fps · 1024 frames measured</div>
+			<div class="dim">G1 Young Generation + G1 Concurrent GC · 34 collections · 41 ms worst · 612 ms/min</div>
+			<div class="dim">3184 / 6144 MB heap</div>
+		</div>
+
+		<p style="margin-top:20px; color:var(--ink-2); font-size:15px">
+			The collector line sits beside the frame line deliberately. A collection's duration
+			is not a pause — ZGC does almost all of its work concurrently and can post long
+			durations while nothing stopped at all. Long collections next to steady frames are
+			a success, and would read as a problem if the two were reported apart.
+		</p>
+	</section>
+
+	<section id="limits">
+		<div class="section-head">
+			<p class="eyebrow">What it cannot do</p>
+			<h2>The honest part.</h2>
+		</div>
+
+		<div class="cant">
+			<h3>It cannot hot-swap a mod into a running game.</h3>
+			<p>
+				Fabric resolves the mod list, loads the classes and applies every mixin during
+				bootstrap. That is the platform, not a gap, and no amount of effort changes it.
+				So the question is not whether a restart happens — it is what the restart costs.
+				Landing back on the same server turns two minutes of menus into about ten
+				seconds, and that difference is the whole feature.
+			</p>
+			<p>
+				Shader packs are a loader's concept rather than the game's, and the loader that
+				reads <code>shaderpacks/</code> does not run on 26.2's Vulkan path at all.
+				Loadout installs them into the folder for whenever that changes. Rejoining a
+				Realm is not supported either: quick play wants a realm id, and a rejoin that
+				opens the wrong world is worse than one that admits it cannot.
+			</p>
+		</div>
+	</section>
+
+	<section id="install">
+		<div class="section-head">
+			<p class="eyebrow">Getting started</p>
+			<h2>Install</h2>
+			<p>
+				The launcher runs on Windows, macOS and Linux. The mod is client-side only —
+				you can put it in any Fabric instance, and the halves that do not need a
+				launcher work anyway.
+			</p>
+		</div>
+
+		<div class="steps">
+			<div class="step">
+				<div>
+					<h3>Build the launcher</h3>
+					<p>Java 25 is fetched automatically if the machine has none.</p>
+					<pre><code>git clone https://github.com/ComplexKing/loadout
+cd loadout &amp;&amp; ./gradlew dist</code></pre>
+				</div>
+			</div>
+			<div class="step">
+				<div>
+					<h3>Start the desktop app</h3>
+					<p>It spawns the jar and drives it over a loopback API, so the command line stays a first-class way in.</p>
+					<pre><code>cd app &amp;&amp; npm install &amp;&amp; npm start</code></pre>
+				</div>
+			</div>
+			<div class="step">
+				<div>
+					<h3>Sign in and make an instance</h3>
+					<p>A Microsoft account, a Minecraft version, and Fabric. Mods come from Modrinth and CurseForge in one search.</p>
+				</div>
+			</div>
+			<div class="step">
+				<div>
+					<h3>Press <kbd>\</kbd> in game</h3>
+					<p>
+						The companion mod is installed with the instance. <kbd>F6</kbd> toggles the
+						frame time overlay, and Mod Menu's Configure button opens the same screen.
+					</p>
+				</div>
+			</div>
+		</div>
+	</section>
+
+	<footer>
+		<span>Loadout · MIT</span>
+		<a href="https://github.com/ComplexKing/loadout">Source</a>
+		<span class="spacer"></span>
+		<span>Not affiliated with Mojang Studios or Microsoft.</span>
+	</footer>
+</div>
+
+</body>
+</html>

@@ -240,6 +240,11 @@ renders titles and descriptions written by strangers on two public registries.
   that reads `shaderpacks/` does not run on 26.2's Vulkan path at all. Loadout installs
   them into the folder for whenever that changes.
 
+## Website
+
+A single static page lives in `site/`. No build step, no dependencies — open
+`site/index.html`, or point GitHub Pages at the folder.
+
 ## Licence
 
 MIT. Not affiliated with Mojang Studios or Microsoft.
