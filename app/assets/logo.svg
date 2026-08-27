@@ -1,0 +1,24 @@
+<!--
+	The Loadout mark: an L with two slots cut into its foot.
+
+	The slots stop short of the bottom on purpose. Cut through, the three pieces read as a
+	bar chart rather than a letter; connected, the shape stays an L and the slots say what
+	the launcher is for.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Loadout">
+	<defs>
+		<linearGradient id="loadout-badge" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#46da91"/>
+			<stop offset="1" stop-color="#35c37d"/>
+		</linearGradient>
+		<mask id="loadout-mark">
+			<rect width="512" height="512" fill="black"/>
+			<rect x="150" y="112" width="82" height="288" rx="18" fill="white"/>
+			<rect x="150" y="318" width="288" height="82" rx="18" fill="white"/>
+			<rect x="242" y="300" width="22" height="72" rx="11" fill="black"/>
+			<rect x="334" y="300" width="22" height="72" rx="11" fill="black"/>
+		</mask>
+	</defs>
+	<rect width="512" height="512" rx="112" fill="url(#loadout-badge)"/>
+	<rect width="512" height="512" fill="#06251a" mask="url(#loadout-mark)"/>
+</svg>

@@ -19,6 +19,9 @@ function createWindow() {
 		minHeight: 600,
 		show: false,
 		backgroundColor: '#14161a',
+		// The taskbar and Alt-Tab icon. Without it Electron ships its own, and an app
+		// wearing the toolkit's default logo does not look finished.
+		icon: path.join(__dirname, '..', '..', 'assets', 'icon.ico'),
 		// The frame is drawn by the page so the sidebar can run the full height, which is
 		// most of why Prism and the Modrinth app look like applications rather than forms.
 		//
