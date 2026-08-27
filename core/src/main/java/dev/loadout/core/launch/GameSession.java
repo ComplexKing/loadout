@@ -101,6 +101,10 @@ public final class GameSession implements AutoCloseable {
 		return this.process.isAlive();
 	}
 
+	public long pid() {
+		return this.process.pid();
+	}
+
 	public Path logFile() {
 		return this.logFile;
 	}

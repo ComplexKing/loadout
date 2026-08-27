@@ -4,8 +4,10 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Stream;
@@ -30,8 +32,33 @@ public final class JavaLocator {
 	private JavaLocator() {
 	}
 
-	/** Everything we can find, newest first. */
+	/**
+	 * Everything we can find, newest first, probing every candidate afresh.
+	 *
+	 * <p>Slow, and unavoidably so: the only reliable way to learn a JVM's version is to run
+	 * it. Prefer {@link #findAll(Path)}, which remembers the answers.
+	 */
 	public static List<JavaInstall> findAll() {
+		return findAll(null);
+	}
+
+	/**
+	 * Everything we can find, newest first, remembering what each binary turned out to be.
+	 *
+	 * <h2>Why the cache matters</h2>
+	 *
+	 * <p>Identifying a JVM means starting it: {@code java -version} as a subprocess, once
+	 * per candidate, waiting for each. On an ordinary developer machine with four or five
+	 * JDKs installed that measured at 4.5 seconds -- and it ran on every single launch,
+	 * making it most of the delay between pressing Play and Minecraft starting.
+	 *
+	 * <p>A binary that has not changed has not changed version, so the answer is recorded
+	 * against the file's size and modification time. Replace a JDK in place and it gets
+	 * probed again; leave it alone and it never does.
+	 *
+	 * @param cacheFile where to keep what was learned, or null to probe everything
+	 */
+	public static List<JavaInstall> findAll(Path cacheFile) {
 		Set<Path> candidates = new LinkedHashSet<>();
 
 		// The JVM running Loadout is always a candidate, and on a fresh machine it may be
@@ -53,13 +80,108 @@ public final class JavaLocator {
 			candidates.addAll(scanForJavaHomes(root));
 		}
 
+		Map<String, Remembered> cache = readCache(cacheFile);
+		Map<String, Remembered> updated = new LinkedHashMap<>();
+
 		List<JavaInstall> installs = new ArrayList<>();
 		for (Path candidate : candidates) {
-			probe(candidate).ifPresent(installs::add);
+			String key = candidate.toString();
+			Stamp stamp = stampOf(candidate);
+			Remembered known = cache.get(key);
+
+			// A hit means not starting a JVM to be told what we already wrote down.
+			if (known != null && stamp != null && known.matches(stamp)) {
+				updated.put(key, known);
+				if (known.major() > 0) {
+					installs.add(new JavaInstall(candidate, known.major(), key));
+				}
+				continue;
+			}
+
+			Optional<JavaInstall> probed = probe(candidate);
+			probed.ifPresent(installs::add);
+
+			if (stamp != null) {
+				// Failures are remembered too, as a major of zero. Something on the path
+				// that is not a usable JVM would otherwise be re-probed on every launch,
+				// which is the slow case rather than the rare one.
+				updated.put(key, new Remembered(stamp.lastModified(), stamp.size(),
+						probed.map(JavaInstall::majorVersion).orElse(0)));
+			}
 		}
+
+		writeCache(cacheFile, updated);
 
 		installs.sort((a, b) -> Integer.compare(b.majorVersion(), a.majorVersion()));
 		return installs;
+	}
+
+	// -- remembering what each binary is ------------------------------------------------
+
+	/** @param major the version it reported, or 0 for "probed, and not a usable JVM" */
+	private record Remembered(long lastModified, long size, int major) {
+		boolean matches(Stamp stamp) {
+			return this.lastModified == stamp.lastModified() && this.size == stamp.size();
+		}
+	}
+
+	private record Stamp(long lastModified, long size) {
+	}
+
+	private static Stamp stampOf(Path executable) {
+		try {
+			return new Stamp(Files.getLastModifiedTime(executable).toMillis(), Files.size(executable));
+		} catch (IOException e) {
+			return null;   // vanished between listing and stat; treat as unknown
+		}
+	}
+
+	private static Map<String, Remembered> readCache(Path cacheFile) {
+		if (cacheFile == null || !Files.isRegularFile(cacheFile)) {
+			return Map.of();
+		}
+
+		try {
+			com.google.gson.JsonObject root = com.google.gson.JsonParser
+					.parseString(Files.readString(cacheFile, java.nio.charset.StandardCharsets.UTF_8))
+					.getAsJsonObject();
+
+			Map<String, Remembered> found = new LinkedHashMap<>();
+			for (var entry : root.entrySet()) {
+				com.google.gson.JsonObject value = entry.getValue().getAsJsonObject();
+				found.put(entry.getKey(), new Remembered(
+						value.get("lastModified").getAsLong(),
+						value.get("size").getAsLong(),
+						value.get("major").getAsInt()));
+			}
+			return found;
+		} catch (IOException | RuntimeException e) {
+			// A cache is a convenience. Anything unreadable is worth forgetting rather
+			// than worth failing a launch over.
+			return Map.of();
+		}
+	}
+
+	private static void writeCache(Path cacheFile, Map<String, Remembered> entries) {
+		if (cacheFile == null) {
+			return;
+		}
+
+		try {
+			com.google.gson.JsonObject root = new com.google.gson.JsonObject();
+			entries.forEach((key, value) -> {
+				com.google.gson.JsonObject json = new com.google.gson.JsonObject();
+				json.addProperty("lastModified", value.lastModified());
+				json.addProperty("size", value.size());
+				json.addProperty("major", value.major());
+				root.add(key, json);
+			});
+
+			Files.createDirectories(cacheFile.getParent());
+			Files.writeString(cacheFile, root.toString(), java.nio.charset.StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			// Not being able to write it costs speed, not correctness.
+		}
 	}
 
 	/**
@@ -70,7 +192,11 @@ public final class JavaLocator {
 	 * a removed internal API, so the closest suitable one wins.
 	 */
 	public static Optional<JavaInstall> bestFor(int requiredMajor) {
-		List<JavaInstall> installs = findAll();
+		return bestFor(requiredMajor, null);
+	}
+
+	public static Optional<JavaInstall> bestFor(int requiredMajor, Path cacheFile) {
+		List<JavaInstall> installs = findAll(cacheFile);
 
 		return installs.stream()
 				.filter(install -> install.majorVersion() == requiredMajor)

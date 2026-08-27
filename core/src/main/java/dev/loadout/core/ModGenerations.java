@@ -137,4 +137,53 @@ public final class ModGenerations {
 	private Path root() {
 		return this.instance.resolve(ROOT);
 	}
+
+	// -- the running marker ------------------------------------------------------------
+
+	/**
+	 * Note that a game is running, so a launcher restarted underneath it still knows.
+	 *
+	 * <p>Without this, closing and reopening Loadout while playing showed Play again --
+	 * and pressing it starts a second game on the same files, with two Fabric instances
+	 * holding the same jars and two copies of a world's session lock. That is one misclick
+	 * from a mess, so the fact outlives the process that knew it.
+	 */
+	public void markRunning(long pid) throws IOException {
+		Path file = runningMarker();
+		Files.createDirectories(file.getParent());
+		Files.writeString(file, Long.toString(pid));
+	}
+
+	public void clearRunning() {
+		try {
+			Files.deleteIfExists(runningMarker());
+		} catch (IOException e) {
+			// Left behind at worst, and the pid check below sees through a stale one.
+		}
+	}
+
+	/**
+	 * Whether a game is up, according to the marker and the operating system.
+	 *
+	 * <p>The pid is checked rather than trusted. A launcher killed alongside its game
+	 * leaves the marker behind, and a file saying "running" forever would be worse than no
+	 * file at all -- so the answer comes from whether that process actually still exists.
+	 */
+	public boolean isRunning() {
+		try {
+			Path file = runningMarker();
+			if (!Files.isRegularFile(file)) {
+				return false;
+			}
+
+			long pid = Long.parseLong(Files.readString(file).trim());
+			return ProcessHandle.of(pid).map(ProcessHandle::isAlive).orElse(false);
+		} catch (IOException | NumberFormatException e) {
+			return false;
+		}
+	}
+
+	private Path runningMarker() {
+		return root().resolve("running.pid");
+	}
 }

@@ -134,6 +134,9 @@ public final class ApiServer {
 				Json.send(exchange, 200,
 						this.routes.toggleMod(path.get("name"), path.get("file"), Json.readObject(exchange))));
 
+		add("POST", "/profiles/{name}/stop", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.stop(path.get("name"))));
+
 		add("POST", "/profiles/{name}/started", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.startedCleanly(path.get("name"))));
 

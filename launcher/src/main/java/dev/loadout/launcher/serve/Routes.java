@@ -31,6 +31,8 @@ import dev.loadout.core.source.RemoteMod;
 import dev.loadout.core.source.SourceId;
 import dev.loadout.core.source.SourceRegistry;
 import java.io.IOException;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 
 /**
@@ -49,6 +51,38 @@ final class Routes {
 	private final ProfileManager profiles;
 	private final Jobs jobs;
 	private final dev.loadout.core.LaunchHistory history;
+
+	/**
+	 * Games running right now, by instance name.
+	 *
+	 * <p>Held so a game can be stopped from the interface. Cancelling the launch job cannot
+	 * do it: cancellation here is cooperative, work checks a flag between steps, and the
+	 * launch job spends its whole life blocked in waitFor without ever looking. So the
+	 * Cancel button on a launch was a button that did nothing, and this is the handle that
+	 * makes stopping real.
+	 */
+	private final java.util.Map<String, dev.loadout.core.launch.GameSession> running =
+			new java.util.concurrent.ConcurrentHashMap<>();
+
+	/**
+	 * The last refreshed Microsoft session, held only in memory.
+	 *
+	 * <p>Refreshing takes a round trip to three services and was most of what a warm launch
+	 * spent its time on -- two seconds, every launch, re-fetching a token that stays valid
+	 * for about a day. Keeping it means the first launch after opening Loadout pays for it
+	 * and the rest do not.
+	 *
+	 * <p>In memory and nowhere else, deliberately. The access token is the credential that
+	 * plays as somebody; the refresh token on disk is what survives a restart, and that
+	 * choice is not being revisited here. Closing Loadout forgets this.
+	 */
+	private volatile CachedSession session;
+
+	/** @param until when to stop trusting it, kept well inside the token's real lifetime */
+	private record CachedSession(String username,
+			dev.loadout.core.auth.MicrosoftAuth.Session session,
+			Instant until) {
+	}
 
 	/**
 	 * Where this API is listening, so a launched game can be told how to reach it.
@@ -191,6 +225,56 @@ final class Routes {
 		json.addProperty("directory", this.home.profileDir(name).toString());
 		json.add("mods", Json.arrayOf(profile.mods(), Routes::entryJson));
 		json.add("lastLaunch", lastLaunchJson(name));
+
+		// So an interface reopened while a game is running still shows it running, rather
+		// than offering to start a second copy of it.
+		json.addProperty("running", isRunning(name));
+		return json;
+	}
+
+	/**
+	 * Where the versions of the JVMs on this machine are remembered.
+	 *
+	 * <p>Identifying one means running it, which on a machine with several JDKs cost about
+	 * four and a half seconds of every launch before this existed.
+	 */
+	private java.nio.file.Path javaCache() {
+		return this.home.root().resolve("java.json");
+	}
+
+	private boolean isRunning(String name) throws IOException {
+		dev.loadout.core.launch.GameSession session = this.running.get(name);
+		if (session != null && session.isRunning()) {
+			return true;
+		}
+
+		// Falls through to the marker on disk, because a game outlives the launcher that
+		// started it. Reopening Loadout mid-session used to show Play, and pressing it
+		// starts a second game on the same instance.
+		return new dev.loadout.core.ModGenerations(this.home.profileDir(name)).isRunning();
+	}
+
+	/**
+	 * Stops a running game.
+	 *
+	 * <p>A polite terminate rather than a kill: the game gets to save and shut down, which
+	 * for a singleplayer world is the difference between quitting and losing the last few
+	 * minutes of it. A game that ignores that is a game that has already hung, and there is
+	 * a window close button for those.
+	 */
+	JsonObject stop(String name) throws IOException {
+		require(name);
+
+		dev.loadout.core.launch.GameSession session = this.running.get(name);
+		JsonObject json = Json.object();
+
+		if (session == null || !session.isRunning()) {
+			json.addProperty("stopped", false);
+			return json;
+		}
+
+		session.stop();
+		json.addProperty("stopped", true);
 		return json;
 	}
 
@@ -979,7 +1063,7 @@ final class Routes {
 					installer.fabricProfile(profile.minecraftVersion(), null);
 
 			int required = JavaLocator.requiredMajor(versionJson);
-			JavaLocator.JavaInstall java = JavaLocator.bestFor(required).orElseThrow(() ->
+			JavaLocator.JavaInstall java = JavaLocator.bestFor(required, javaCache()).orElseThrow(() ->
 					new IllegalStateException("Minecraft " + profile.minecraftVersion()
 							+ " needs Java " + required + " and none was found"));
 
@@ -996,23 +1080,39 @@ final class Routes {
 					.orElseThrow(() -> new IllegalStateException(
 							"No signed-in account. Add one under Settings, Accounts."));
 
-			// A fresh session where possible, falling back to offline. The access token the
-			// game needs lasts about a day, so it is fetched now rather than stored -- and
-			// if the network is down, an account that has signed in before can still play
-			// offline, which is what offline mode is actually for.
+			// A fresh session where possible, falling back to offline. If the network is
+			// down, an account that has signed in before can still play offline, which is
+			// what offline mode is actually for.
 			LaunchBuilder.Account account;
-			try {
-				reporter.progress("Refreshing session", 0, 0);
-				var session = auth().refresh(verified.refreshToken());
+			CachedSession held = this.session;
 
-				// Microsoft rotates refresh tokens, so the new one has to replace the old
-				// or the next launch signs in with a token that has already been spent.
-				accounts.save(session.toStored());
-				account = LaunchBuilder.Account.online(session);
-			} catch (IOException e) {
-				reporter.log("Could not refresh the session (" + e.getMessage()
-						+ "); starting offline.");
-				account = LaunchBuilder.Account.offlineFor(verified);
+			if (held != null && held.username().equals(verified.username())
+					&& held.until().isAfter(Instant.now())) {
+				// Refreshing means a round trip to Microsoft, Xbox Live, XSTS and the
+				// Minecraft service in series, which measured at about two seconds. Doing
+				// that on every launch to re-fetch a token still good for hours was most
+				// of what a warm start spent its time on.
+				account = LaunchBuilder.Account.online(held.session());
+			} else {
+				try {
+					reporter.progress("Refreshing session", 0, 0);
+					var session = auth().refresh(verified.refreshToken());
+
+					// Microsoft rotates refresh tokens, so the new one has to replace the
+					// old or the next launch signs in with a token already spent.
+					accounts.save(session.toStored());
+
+					// Well inside the token's real lifetime of about a day. The cost of
+					// being wrong is a game that will not connect to a server, which is
+					// worth several hours of margin to avoid.
+					this.session = new CachedSession(verified.username(), session,
+							Instant.now().plus(Duration.ofHours(6)));
+					account = LaunchBuilder.Account.online(session);
+				} catch (IOException e) {
+					reporter.log("Could not refresh the session (" + e.getMessage()
+							+ "); starting offline.");
+					account = LaunchBuilder.Account.offlineFor(verified);
+				}
 			}
 
 			LogRedactor redactor = new LogRedactor();
@@ -1074,12 +1174,25 @@ final class Routes {
 
 			reporter.log("Heap: " + String.join(" ", jvmArgs));
 
-			reporter.progress("Running", 0, 0);
 			reporter.log("Launching as " + account.username() + " on Java " + java.majorVersion());
 
 			try (GameSession session = GameSession.start(command, this.home.profileDir(profileName),
 					this.home.logFile(profileName), redactor, reporter::log)) {
+
+				this.running.put(profileName, session);
+				dev.loadout.core.ModGenerations generations =
+						new dev.loadout.core.ModGenerations(this.home.profileDir(profileName));
+				generations.markRunning(session.pid());
+
+				// A stage of its own, and the last one this job reports. Everything before
+				// it is the launcher working and worth a progress bar; everything after it
+				// is somebody playing, and a progress bar that sits at "launching" for
+				// three hours is not progress, it is furniture.
+				reporter.progress("Playing", 0, 0);
+
 				int code = session.awaitExit();
+				this.running.remove(profileName, session);
+				generations.clearRunning();
 				this.history.finished(profileName, code);
 
 				var diagnosis = this.history.diagnose(profileName);
@@ -1135,7 +1248,7 @@ final class Routes {
 	}
 
 	JsonObject javaInstalls() {
-		JsonArray array = Json.arrayOf(JavaLocator.findAll(), install -> {
+		JsonArray array = Json.arrayOf(JavaLocator.findAll(javaCache()), install -> {
 			JsonObject json = Json.object();
 			json.addProperty("path", install.executable().toString());
 			json.addProperty("majorVersion", install.majorVersion());

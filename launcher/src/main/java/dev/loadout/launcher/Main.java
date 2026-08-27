@@ -127,7 +127,7 @@ public final class Main {
 				need(rest, 1, "key curseforge [<api-key>]");
 				setKey(home, rest.get(0), rest.size() > 1 ? rest.get(1) : null);
 			}
-			case "java" -> javas();
+			case "java" -> javas(home);
 			case "install" -> {
 				need(rest, 1, "install <mc-version> [loader-version]");
 				install(home, rest.get(0), rest.size() > 1 ? rest.get(1) : null);
@@ -538,8 +538,8 @@ public final class Main {
 		System.out.println("Key accepted and saved to " + Settings.fileIn(home.root()));
 	}
 
-	private static void javas() {
-		List<JavaLocator.JavaInstall> installs = JavaLocator.findAll();
+	private static void javas(LoadoutHome home) {
+		List<JavaLocator.JavaInstall> installs = JavaLocator.findAll(home.root().resolve("java.json"));
 		if (installs.isEmpty()) {
 			System.out.println("No Java installations found.");
 			return;
@@ -585,12 +585,12 @@ public final class Main {
 		JsonObject fabric = installer.fabricProfile(profile.minecraftVersion(), null);
 
 		int required = JavaLocator.requiredMajor(versionJson);
-		JavaLocator.JavaInstall javaInstall = JavaLocator.bestFor(required).orElse(null);
+		JavaLocator.JavaInstall javaInstall = JavaLocator.bestFor(required, home.root().resolve("java.json")).orElse(null);
 		if (javaInstall == null) {
 			System.err.printf("Minecraft %s needs Java %d and none was found.%n",
 					profile.minecraftVersion(), required);
 			System.err.println("Installed Javas:");
-			JavaLocator.findAll().forEach(i ->
+			JavaLocator.findAll(home.root().resolve("java.json")).forEach(i ->
 					System.err.printf("  %d  %s%n", i.majorVersion(), i.executable()));
 			System.exit(1);
 		}

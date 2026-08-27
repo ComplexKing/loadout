@@ -59,6 +59,7 @@ contextBridge.exposeInMainWorld('loadout', {
 		invoke('migrate', profile, target, apply, includeLikely),
 
 	launch: (profile, username) => invoke('launch', profile, username),
+	stop: (profile) => invoke('stop', profile),
 	search: (query) => invoke('search', query),
 	versions: (source, id, profile) => invoke('versions', source, id, profile),
 	modDetails: (source, id) => invoke('mod:details', source, id),

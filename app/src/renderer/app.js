@@ -30,6 +30,7 @@ const state = {
 	searchSeq: 0,
 	openLog: null,
 	modReturn: 'browse',
+	running: new Set(),   // instance names with a game up right now
 };
 
 /* -- helpers -------------------------------------------------------------------------- */
@@ -772,6 +773,11 @@ function renderInstanceGrid() {
 			`${instance.minecraftVersion} · ${instance.loader}`));
 
 		const meta = el('div', 'meta-line');
+		// First in the row, because "this one is open" is the thing worth seeing from
+		// across the grid.
+		if (state.running.has(instance.name)) {
+			meta.appendChild(el('span', 'pill ok', 'Running'));
+		}
 		meta.appendChild(el('span', 'pill', `${instance.modCount} mods`));
 		if (instance.enabledCount !== instance.modCount) {
 			meta.appendChild(el('span', 'pill off', `${instance.modCount - instance.enabledCount} off`));
@@ -804,11 +810,45 @@ async function openInstance(name) {
 	paintHeroMeta(profile);
 	paintLaunchWarning(profile);
 
+	// From the profile rather than only from job events, so an interface opened while a
+	// game is already running still knows about it.
+	if (profile.running) state.running.add(profile.name);
+	else state.running.delete(profile.name);
+	paintPlayButton();
+
 	show('instance');
 	switchTab(state.tab);
 
 	loadModIcons(profile.name);
 	refreshCounts(profile.name);
+}
+
+/*
+	The hero button is Play or Stop depending on whether this instance is up.
+
+	It has to be one button rather than two, because the two are never both useful and a
+	greyed-out Play beside a Stop invites the question of what a second Play would do. The
+	answer -- a second copy of the game on the same files -- is not something to leave one
+	misclick away.
+*/
+function paintPlayButton() {
+	const name = state.current ? state.current.name : null;
+	const up = name !== null && state.running.has(name);
+
+	$('play-label').textContent = up ? 'Stop' : 'Play';
+	$('play-icon').setAttribute('href', up ? '#i-stop' : '#i-play');
+	$('play').classList.toggle('primary', !up);
+	$('play').classList.toggle('danger', up);
+	$('play').disabled = false;
+}
+
+/** Records that a game came up or went away, and repaints anything that shows it. */
+function markRunning(name, up) {
+	if (up) state.running.add(name);
+	else state.running.delete(name);
+
+	paintPlayButton();
+	renderInstanceGrid();
 }
 
 function paintHeroMeta(profile) {
@@ -877,6 +917,9 @@ async function refreshCurrent() {
 	state.current = profile;
 	paintHeroMeta(profile);
 	paintLaunchWarning(profile);
+	if (profile.running) state.running.add(profile.name);
+	else state.running.delete(profile.name);
+	paintPlayButton();
 	if (state.tab === 'mods') renderContent();
 	refreshCounts(profile.name);
 }
@@ -2154,6 +2197,17 @@ function onJobEvent(event) {
 	const job = event.job;
 
 	if (job.state === 'running') {
+		// A launch stops being progress the moment the game is up. Leaving it in the bar
+		// meant a progress indicator sitting at "launching" for three hours and a Cancel
+		// button that did nothing -- cancellation is cooperative and this job spends its
+		// life blocked in waitFor. The hero button carries it from here.
+		if (job.kind === 'launch' && job.stage === 'Playing') {
+			state.job = null;
+			$('jobbar').hidden = true;
+			markRunning(job.subject, true);
+			return;
+		}
+
 		state.job = job;
 		$('jobbar').hidden = false;
 		$('job-title').textContent = `${job.kind}: ${job.subject}`;
@@ -2176,6 +2230,8 @@ function onJobEvent(event) {
 		state.job = null;
 		$('jobbar').hidden = true;
 	}
+
+	if (job.kind === 'launch') markRunning(job.subject, false);
 
 	if (job.state === 'failed') {
 		// A failed sign-in would otherwise leave its dialog covering the reason.
@@ -2579,7 +2635,25 @@ function wire() {
 	$('browse-search').addEventListener('input', () => debounce('browse', runBrowse));
 
 	$('play').addEventListener('click', async () => {
-		if (await call(api.launch(state.current.name, null), 'Could not launch')) {
+		const name = state.current.name;
+
+		if (state.running.has(name)) {
+			// A terminate, not a kill: the game gets to save and shut down, which for a
+			// singleplayer world is the difference between quitting and losing the last
+			// few minutes of it.
+			$('play').disabled = true;
+			const result = await call(api.stop(name), 'Could not stop the game');
+			if (result && !result.stopped) {
+				// It had already gone. Say so rather than leaving a dead Stop button.
+				markRunning(name, false);
+			} else if (result) {
+				toast('Closing Minecraft…');
+			}
+			$('play').disabled = false;
+			return;
+		}
+
+		if (await call(api.launch(name, null), 'Could not launch')) {
 			toast('Starting Minecraft…');
 		}
 	});

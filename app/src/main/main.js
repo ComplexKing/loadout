@@ -169,6 +169,9 @@ function registerHandlers() {
 	handle('launch', (name, username) =>
 		api.request('POST', `/profiles/${encodeURIComponent(name)}/launch`, { username }));
 
+	handle('stop', (name) =>
+		api.request('POST', `/profiles/${encodeURIComponent(name)}/stop`, {}));
+
 	handle('search', (query) => {
 		const params = new URLSearchParams();
 		for (const [key, value] of Object.entries(query || {})) {
