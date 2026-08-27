@@ -134,6 +134,9 @@ public final class ApiServer {
 				Json.send(exchange, 200,
 						this.routes.toggleMod(path.get("name"), path.get("file"), Json.readObject(exchange))));
 
+		add("POST", "/profiles/{name}/started", (exchange, path, query) ->
+				Json.send(exchange, 200, this.routes.startedCleanly(path.get("name"))));
+
 		add("GET", "/profiles/{name}/icons", (exchange, path, query) ->
 				Json.send(exchange, 200, this.routes.modIcons(path.get("name"))));
 
@@ -435,7 +438,11 @@ public final class ApiServer {
 			// could use this to launch a different instance, which is a nuisance rather
 			// than a danger -- anything running in that JVM can already start a process.
 			// The lines that matter, accounts and deletion, stay closed.
-			"POST /profiles/{name}/launch");
+			"POST /profiles/{name}/launch",
+			// Reporting that this game finished starting. Only the running game is in a
+			// position to know, and knowing turns "it will not start any more" from a log
+			// to read into a set to go back to.
+			"POST /profiles/{name}/started");
 
 	/** The route's shape rather than the request's path, so ids do not end up in the list. */
 	private String routeKey(HttpExchange exchange, String[] segments) {

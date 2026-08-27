@@ -762,6 +762,17 @@ img.art { color: transparent; }
 }
 
 .notice .btn { margin-left: auto; flex: none; }
+.notice .btn + .btn { margin-left: 8px; }
+
+/*
+	The launch warning sits between the hero and the body, so it has to pick up the same
+	26px inset the hero has -- a full-bleed strip there reads as part of the chrome rather
+	than as something about this instance.
+*/
+#launch-warning {
+	align-items: center;
+	margin: 0 26px 16px;
+}
 
 /* -- blank states -------------------------------------------------------------------- */
 

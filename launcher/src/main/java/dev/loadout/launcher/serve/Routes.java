@@ -48,6 +48,7 @@ final class Routes {
 	private final LoadoutHome home;
 	private final ProfileManager profiles;
 	private final Jobs jobs;
+	private final dev.loadout.core.LaunchHistory history;
 
 	/**
 	 * Where this API is listening, so a launched game can be told how to reach it.
@@ -62,6 +63,7 @@ final class Routes {
 		this.home = home;
 		this.profiles = new ProfileManager(home);
 		this.jobs = jobs;
+		this.history = new dev.loadout.core.LaunchHistory(home);
 	}
 
 	void setGameCredentials(int port, String token) {
@@ -188,6 +190,52 @@ final class Routes {
 		json.addProperty("loader", profile.loader());
 		json.addProperty("directory", this.home.profileDir(name).toString());
 		json.add("mods", Json.arrayOf(profile.mods(), Routes::entryJson));
+		json.add("lastLaunch", lastLaunchJson(name));
+		return json;
+	}
+
+	/**
+	 * What happened last time this profile was started, and whether to offer a way back.
+	 *
+	 * <p>Sent with the profile rather than behind its own endpoint because it is only ever
+	 * wanted alongside the mod list -- the whole point is to say "these mods did not start,
+	 * those ones did" in one place.
+	 */
+	private JsonObject lastLaunchJson(String name) throws IOException {
+		var diagnosis = this.history.diagnose(name);
+
+		JsonObject json = Json.object();
+		json.addProperty("failedToStart", diagnosis.failedToStart());
+		if (diagnosis.detail() != null) {
+			json.addProperty("detail", diagnosis.detail());
+		}
+		if (diagnosis.rollbackTo() != null) {
+			json.addProperty("rollbackTo", diagnosis.rollbackTo());
+		}
+
+		this.history.lastGood(name).ifPresent(good -> {
+			json.addProperty("lastGoodSnapshot", good.snapshotId());
+			json.addProperty("lastGoodAt", good.at());
+		});
+		return json;
+	}
+
+	/**
+	 * The running game reporting that it finished starting.
+	 *
+	 * <p>Only the game itself can say this, which is why the endpoint exists at all: from
+	 * outside the process, a launcher cannot tell a game sitting happily at the menu from
+	 * one that died before the window opened. Both look like a process that is running.
+	 */
+	JsonObject startedCleanly(String name) throws IOException {
+		Profile profile = require(name);
+		var snapshotId = this.history.healthy(profile);
+
+		JsonObject json = Json.object();
+		json.addProperty("recorded", true);
+		// Present only when this set had not been seen working before, which is the only
+		// time a snapshot is worth taking.
+		snapshotId.ifPresent(id -> json.addProperty("snapshotId", id));
 		return json;
 	}
 
@@ -1014,6 +1062,11 @@ final class Routes {
 				reporter.log("Rejoining " + rejoin.target());
 			}
 
+			// Recorded before the process exists, so a game that dies during startup still
+			// leaves an attempt behind to be diagnosed. A record written afterwards would
+			// be missing in exactly the case it is for.
+			this.history.started(profile);
+
 			List<String> command = LaunchBuilder.build(
 					javaBinary, versionJson, fabric, installer,
 					profile.minecraftVersion(), this.home.profileDir(profileName), account,
@@ -1027,9 +1080,19 @@ final class Routes {
 			try (GameSession session = GameSession.start(command, this.home.profileDir(profileName),
 					this.home.logFile(profileName), redactor, reporter::log)) {
 				int code = session.awaitExit();
+				this.history.finished(profileName, code);
+
+				var diagnosis = this.history.diagnose(profileName);
+				if (diagnosis.detail() != null) {
+					reporter.log(diagnosis.detail());
+				}
 
 				JsonObject json = Json.object();
 				json.addProperty("exitCode", code);
+				json.addProperty("failedToStart", diagnosis.failedToStart());
+				if (diagnosis.rollbackTo() != null) {
+					json.addProperty("rollbackTo", diagnosis.rollbackTo());
+				}
 				json.addProperty("logFile", this.home.logFile(profileName).toString());
 				return json;
 			}

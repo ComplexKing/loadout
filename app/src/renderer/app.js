@@ -802,6 +802,7 @@ async function openInstance(name) {
 
 	$('hero-name').textContent = profile.name;
 	paintHeroMeta(profile);
+	paintLaunchWarning(profile);
 
 	show('instance');
 	switchTab(state.tab);
@@ -875,8 +876,50 @@ async function refreshCurrent() {
 
 	state.current = profile;
 	paintHeroMeta(profile);
+	paintLaunchWarning(profile);
 	if (state.tab === 'mods') renderContent();
 	refreshCounts(profile.name);
+}
+
+/*
+	What happened the last time this instance was started.
+
+	Only ever shown when the game did not get as far as a window -- that is the case where
+	the launcher knows something the crash log does not, namely which mod set was working
+	before. A game that started and later crashed gets no banner: the mods loaded, so
+	changing them is not the answer, and saying otherwise would send somebody the wrong way.
+
+	The rollback is offered, never taken. Rewriting somebody's mod list because a process
+	exited badly is help that is indistinguishable from a bug.
+*/
+function paintLaunchWarning(profile) {
+	const banner = $('launch-warning');
+	const rollback = $('launch-rollback');
+	const last = profile.lastLaunch || {};
+
+	if (!last.failedToStart || state.dismissedWarning === profile.name) {
+		banner.hidden = true;
+		return;
+	}
+
+	$('launch-warning-text').textContent = last.detail
+		|| 'The game did not finish starting.';
+
+	// Absent when the mods are unchanged since a set that worked, or when nothing has
+	// ever worked. Both are cases where a rollback would change nothing.
+	rollback.hidden = !last.rollbackTo;
+	banner.hidden = false;
+
+	rollback.onclick = async () => {
+		rollback.disabled = true;
+		if (await call(api.snapshots.rollback(profile.name, last.rollbackTo), 'Rollback failed')) {
+			toast('Rolled back to the last set that started');
+			state.dismissedWarning = profile.name;
+			await refreshCurrent();
+			await loadInstances();
+		}
+		rollback.disabled = false;
+	};
 }
 
 /* -- instance tabs --------------------------------------------------------------------- */
@@ -2198,7 +2241,19 @@ function reportSuccess(job) {
 		return;
 	}
 
-	if (job.kind === 'launch') toast(`Minecraft exited with code ${result.exitCode}`);
+	if (job.kind === 'launch') {
+		if (result.failedToStart) {
+			// The banner carries the detail and the way out of it, so the toast only has
+			// to point at it. Cleared first: this launch is the one being reported on, and
+			// a dismissal from an earlier one would hide the new verdict.
+			state.dismissedWarning = null;
+			toast('Minecraft did not finish starting', true);
+			refreshCurrent();
+		} else {
+			toast(`Minecraft exited with code ${result.exitCode}`);
+			refreshCurrent();
+		}
+	}
 }
 
 /* -- version combobox ---------------------------------------------------------------------------- */
@@ -2531,6 +2586,13 @@ function wire() {
 
 	$('open-folder').addEventListener('click', () => {
 		api.openPath(state.current.directory);
+	});
+
+	// Remembered per instance and only for this session. The verdict is still on disk, so
+	// it comes back next time the app opens -- dismissing means "not now", not "never".
+	$('launch-warning-dismiss').addEventListener('click', () => {
+		state.dismissedWarning = state.current ? state.current.name : null;
+		$('launch-warning').hidden = true;
 	});
 
 	$('mig-check').addEventListener('click', async () => {
