@@ -1,0 +1,117 @@
+package dev.loadout.core;
+
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import java.util.stream.Stream;
+
+/**
+ * A separate mods folder per launch, so the set can be changed while a game is running.
+ *
+ * <h2>The problem this exists for</h2>
+ *
+ * <p>Windows will not let a file be deleted while it is open, and Fabric holds every mod
+ * jar open for as long as the game runs. Writing a new mod list into the folder the game
+ * is using therefore fails -- which is why nothing could be staged mid-session, and why
+ * starting a second game with a different set was impossible.
+ *
+ * <p>So each launch gets its own folder of hard links, and the game is pointed at it with
+ * Fabric's own {@code fabric.addMods}. Changing the mod list writes a new folder and never
+ * touches the one in use. Links cost nothing -- the bytes live once in the content store,
+ * whatever number of generations point at them.
+ *
+ * <h2>What this does not take over</h2>
+ *
+ * <p>The instance's own {@code mods/} folder is left alone and still loaded by Fabric as
+ * normal. Somebody who drops a jar in there expects it to work, and it does; Loadout
+ * simply does not manage it. Managed mods and hand-placed ones therefore coexist rather
+ * than one silently deleting the other, which is what a shared folder would have meant.
+ */
+public final class ModGenerations {
+	/** Kept out of the way, since it is bookkeeping rather than something to browse. */
+	private static final String ROOT = ".loadout";
+	private static final String PREFIX = "gen-";
+
+	/**
+	 * How many old generations to keep.
+	 *
+	 * <p>More than one because a generation may still be in use by a game that is running,
+	 * or by one that is starting. Not many more, because each is a folder of links and
+	 * they are only interesting until the next launch.
+	 */
+	private static final int KEEP = 3;
+
+	private final Path instance;
+
+	public ModGenerations(Path instanceDir) {
+		this.instance = instanceDir;
+	}
+
+	/** Where a new generation should be written. Named by time so they sort chronologically. */
+	public Path create() throws IOException {
+		Path dir = root().resolve(PREFIX + System.currentTimeMillis());
+		Files.createDirectories(dir);
+		return dir;
+	}
+
+	/** The most recent generation, or empty when none has been written yet. */
+	public java.util.Optional<Path> latest() throws IOException {
+		List<Path> all = all();
+		return all.isEmpty() ? java.util.Optional.empty() : java.util.Optional.of(all.get(0));
+	}
+
+	/** Newest first. */
+	public List<Path> all() throws IOException {
+		Path root = root();
+		if (!Files.isDirectory(root)) {
+			return List.of();
+		}
+
+		try (Stream<Path> entries = Files.list(root)) {
+			List<Path> found = new ArrayList<>(entries
+					.filter(Files::isDirectory)
+					.filter(path -> path.getFileName().toString().startsWith(PREFIX))
+					.toList());
+
+			found.sort(Comparator.comparing((Path path) -> path.getFileName().toString()).reversed());
+			return List.copyOf(found);
+		}
+	}
+
+	/**
+	 * Deletes generations beyond the few most recent.
+	 *
+	 * <p>A generation still open by a running game cannot be deleted on Windows, and that
+	 * is exactly the right outcome: the attempt fails, the folder stays, and it is cleaned
+	 * up next time when nothing holds it. So a failure here is ignored rather than
+	 * reported -- it means the safety worked.
+	 */
+	public void prune() throws IOException {
+		List<Path> all = all();
+		for (int i = KEEP; i < all.size(); i++) {
+			deleteQuietly(all.get(i));
+		}
+	}
+
+	private static void deleteQuietly(Path dir) {
+		try (Stream<Path> walk = Files.walk(dir)) {
+			for (Path path : walk.sorted(Comparator.reverseOrder()).toList()) {
+				try {
+					Files.deleteIfExists(path);
+				} catch (IOException e) {
+					// In use. Leave it; the next prune will find it free.
+					return;
+				}
+			}
+		} catch (IOException e) {
+			// Already gone, or unreadable. Either way there is nothing to do.
+		}
+	}
+
+	private Path root() {
+		return this.instance.resolve(ROOT);
+	}
+}

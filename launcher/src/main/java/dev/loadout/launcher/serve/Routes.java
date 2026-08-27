@@ -981,6 +981,13 @@ final class Routes {
 			// interface's: everything in that JVM can read a system property, so what is
 			// put there has to be something it is acceptable for every mod to hold.
 			List<String> withApi = new java.util.ArrayList<>(jvmArgs);
+
+			// Fabric's own way of being told about mods outside the game folder. This is
+			// what lets the set change while a game is running: the folder it loaded from
+			// is never written to again.
+			java.util.Optional<java.nio.file.Path> generation =
+					new dev.loadout.core.ModGenerations(this.home.profileDir(profileName)).latest();
+			generation.ifPresent(dir -> withApi.add("-Dfabric.addMods=" + dir.toAbsolutePath()));
 			if (this.apiPort > 0 && this.gameToken != null) {
 				withApi.add("-Dloadout.api.port=" + this.apiPort);
 				withApi.add("-Dloadout.api.token=" + this.gameToken);

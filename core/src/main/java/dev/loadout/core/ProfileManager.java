@@ -85,9 +85,12 @@ public final class ProfileManager {
 		// Cleared per folder rather than all at once, so a kind with no entries still has
 		// its folder emptied and one the profile does not manage is left alone.
 		java.util.Set<String> folders = new java.util.LinkedHashSet<>();
-		folders.add(dev.loadout.core.source.ContentType.MOD.folder());
 		for (Profile.Entry entry : profile.mods()) {
-			folders.add(entry.kind().folder());
+			// mods/ is deliberately absent: it is no longer where managed mods live, and it
+			// is where somebody's hand-placed jar lives. Clearing it would delete that.
+			if (entry.kind() != dev.loadout.core.source.ContentType.MOD) {
+				folders.add(entry.kind().folder());
+			}
 		}
 
 		for (String folder : folders) {
@@ -113,15 +116,30 @@ public final class ProfileManager {
 			}
 		}
 
+		// Mods go to a fresh generation rather than into mods/, because the running game
+		// holds every jar in the folder it loaded from open and nothing in it can be
+		// replaced. Packs keep their own folders: the game reads those on demand and does
+		// not hold them, so there is nothing to work around.
+		ModGenerations generations = new ModGenerations(instance);
+		Path modsGeneration = generations.create();
+
 		int written = 0;
 		for (Profile.Entry entry : profile.mods()) {
 			if (entry.kind().isArchive()) {
 				continue;   // unpacked at install time, not linked
 			}
-			Path dir = instance.resolve(entry.kind().folder());
+
+			Path dir = entry.kind() == dev.loadout.core.source.ContentType.MOD
+					? modsGeneration
+					: instance.resolve(entry.kind().folder());
+
 			this.home.store().linkInto(entry.sha512(), dir, entry.fileName(), entry.enabled());
 			written++;
 		}
+
+		// Old ones go once nothing holds them. A generation still open by a running game
+		// simply refuses to delete, which is the outcome wanted.
+		generations.prune();
 		return written;
 	}
 
