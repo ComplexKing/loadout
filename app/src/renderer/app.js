@@ -2691,6 +2691,26 @@ function wire() {
 		$('update-bar').hidden = true;
 	});
 
+	/*
+		Re-check whether the game is still up whenever this window comes back to the front.
+
+		The running flag is normally kept current by job events, but an event only arrives
+		if something is there to send it -- and the launcher is usually behind the game the
+		whole time it is running, so the moment somebody looks at it again is exactly the
+		moment the answer may have changed. Alt-tabbing back after closing Minecraft used
+		to leave a Stop button for a game that had already gone.
+
+		The check reads a pid marker rather than trusting memory, so it is right even if the
+		backend restarted in between.
+	*/
+	window.addEventListener('focus', () => {
+		if (state.view === 'instance' && state.current) {
+			refreshCurrent();
+		} else {
+			loadInstances();
+		}
+	});
+
 	// Remembered per instance and only for this session. The verdict is still on disk, so
 	// it comes back next time the app opens -- dismissing means "not now", not "never".
 	$('launch-warning-dismiss').addEventListener('click', () => {

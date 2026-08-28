@@ -17,15 +17,26 @@ import { fileURLToPath } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const out = join(root, 'app', 'runtime');
 
-// jdeps reports what the jar references. The two crypto modules are added by hand because
-// TLS loads them as services rather than referencing them, so jdeps never sees them --
-// and without them every HTTPS request fails at runtime rather than at build time.
+// The two crypto modules are added by hand because TLS loads them as services rather than
+// referencing them, so jdeps never sees them -- and without them every HTTPS request fails
+// at runtime rather than at build time.
 const MODULES = [
-	'java.base', 'java.compiler', 'java.desktop', 'java.net.http', 'java.sql',
-	'jdk.httpserver', 'jdk.management',
+	'java.base', 'java.net.http', 'jdk.httpserver', 'jdk.management',
 	'jdk.crypto.ec', 'jdk.crypto.cryptoki',
 	'jdk.zipfs', 'jdk.unsupported',
 ];
+
+// Deliberately absent, though jdeps asks for them:
+//
+//   java.desktop   pulled in only by FlatLaf, the look-and-feel for the Swing interface
+//                  the Electron app replaced. This runtime only ever runs `loadout.jar
+//                  serve`, which never touches AWT. Including it cost 16 MB.
+//   java.sql       and java.compiler, referenced by library code that the serve path
+//                  does not reach either.
+//
+// Dropping them was checked rather than assumed: health, profiles, accounts, the profile
+// detail, the Java scan, and both HTTPS endpoints all answer, with no NoClassDefFoundError
+// anywhere in the log. If a future feature needs Swing, add java.desktop back.
 
 const home = process.env.JAVA_HOME;
 if (!home) {

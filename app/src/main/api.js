@@ -59,7 +59,16 @@ class Api {
 				});
 			});
 
-			request.on('error', reject);
+			// Node's own message for a dead backend is "connect ECONNREFUSED 127.0.0.1:52223",
+			// which tells somebody using a launcher nothing they can act on. The cause is
+			// always the same -- the jar this app spawned is no longer there.
+			request.on('error', (error) => {
+				if (error && (error.code === 'ECONNREFUSED' || error.code === 'ECONNRESET')) {
+					reject(new Error('Loadout stopped responding. Restart the app.'));
+					return;
+				}
+				reject(error);
+			});
 			if (payload) {
 				request.write(payload);
 			}
