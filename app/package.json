@@ -1,7 +1,7 @@
 {
   "name": "loadout-app",
-  "version": "0.1.0",
-  "description": "Desktop interface for Loadout",
+  "version": "0.1.1",
+  "description": "Minecraft profile manager and launcher",
   "license": "MIT",
   "private": true,
   "main": "src/main/main.js",
@@ -18,7 +18,7 @@
   },
   "build": {
     "appId": "dev.loadout.app",
-    "productName": "Loadout",
+    "productName": "Loadout Launcher",
     "files": [
       "src/**/*",
       "assets/**/*",
@@ -64,6 +64,9 @@
     },
     "directories": {
       "output": "../build/release"
-    }
-  }
+    },
+    "executableName": "LoadoutLauncher",
+    "copyright": "ComplexKing"
+  },
+  "author": "ComplexKing"
 }
