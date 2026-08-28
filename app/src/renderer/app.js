@@ -2663,6 +2663,34 @@ function wire() {
 		api.openPath(state.current.directory);
 	});
 
+	// -- updates ------------------------------------------------------------------------
+
+	/*
+		Offered, never taken. Installing restarts the app, and doing that underneath somebody
+		who is mid-install -- or who has a game running that the launcher is watching -- is
+		worse than being one version behind.
+	*/
+	const showUpdate = (version) => {
+		if (!version) return;
+		$('update-text').textContent = `Loadout ${version} is ready.`;
+		$('update-bar').hidden = false;
+	};
+
+	api.updates.onReady(showUpdate);
+	// Also asked directly, in case it finished downloading before this page was listening.
+	api.updates.pending().then(showUpdate);
+
+	$('update-install').addEventListener('click', async () => {
+		$('update-install').disabled = true;
+		$('update-text').textContent = 'Restarting…';
+		await api.updates.install();
+	});
+
+	$('update-later').addEventListener('click', () => {
+		// Only for this sitting. It is still downloaded, and it will offer again next time.
+		$('update-bar').hidden = true;
+	});
+
 	// Remembered per instance and only for this session. The verdict is still on disk, so
 	// it comes back next time the app opens -- dismissing means "not now", not "never".
 	$('launch-warning-dismiss').addEventListener('click', () => {

@@ -1,6 +1,6 @@
 {
   "name": "loadout-app",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Minecraft profile manager and launcher",
   "license": "MIT",
   "private": true,
@@ -66,7 +66,17 @@
       "output": "../build/release"
     },
     "executableName": "LoadoutLauncher",
-    "copyright": "ComplexKing"
+    "copyright": "ComplexKing",
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ComplexKing",
+        "repo": "loadout"
+      }
+    ]
   },
-  "author": "ComplexKing"
+  "author": "ComplexKing",
+  "dependencies": {
+    "electron-updater": "^6.8.9"
+  }
 }

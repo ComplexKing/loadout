@@ -2,6 +2,7 @@
 
 const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron');
 const path = require('node:path');
+const { Updates } = require('./updates');
 const { Backend } = require('./backend');
 const { Api } = require('./api');
 
@@ -9,6 +10,7 @@ const backend = new Backend();
 let api = null;
 let window = null;
 let stopEvents = null;
+let updates = null;
 let ready = false;
 
 function createWindow() {
@@ -174,6 +176,11 @@ function registerHandlers() {
 
 	handle('stop', (name) =>
 		api.request('POST', `/profiles/${encodeURIComponent(name)}/stop`, {}));
+
+	// Not routed through `handle`, which wraps everything as an API call -- these two
+	// never touch the backend.
+	ipcMain.handle('update:pending', () => (updates ? updates.pending() : null));
+	ipcMain.handle('update:install', () => (updates ? updates.install() : false));
 
 	handle('search', (query) => {
 		const params = new URLSearchParams();
@@ -422,6 +429,15 @@ async function screenshotAndQuit(target) {
 app.whenReady().then(async () => {
 	registerHandlers();
 	createWindow();
+
+	// Checked once at startup and then left alone. A launcher is opened, used, and closed;
+	// polling for updates while it sits there would be noise for no benefit.
+	updates = new Updates((version) => {
+		if (window && !window.isDestroyed()) {
+			window.webContents.send('update:ready', version);
+		}
+	}, (message) => console.log(`[updates] ${message}`));
+	updates.check(app.isPackaged);
 
 	try {
 		const { port, token } = await backend.start();

@@ -556,6 +556,19 @@
 	</main>
 </div>
 
+<!--
+	Shown only once a newer version is downloaded and sitting ready. Installing means
+	restarting, so it asks rather than acting -- restarting underneath somebody mid-install,
+	or with a game running that this process is watching, is worse than being a version
+	behind.
+-->
+<div id="update-bar" class="update-bar" hidden>
+	<svg class="ico sm"><use href="#i-sparkle"/></svg>
+	<span id="update-text"></span>
+	<button id="update-install" class="btn sm">Restart to update</button>
+	<button id="update-later" class="btn quiet sm">Later</button>
+</div>
+
 <footer id="jobbar" class="jobbar" hidden>
 	<div class="job-info">
 		<span id="job-title" class="job-title"></span>

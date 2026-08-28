@@ -118,6 +118,16 @@ contextBridge.exposeInMainWorld('loadout', {
 		return () => ipcRenderer.removeListener('job:event', listener);
 	},
 
+	updates: {
+		pending: () => ipcRenderer.invoke('update:pending'),
+		install: () => ipcRenderer.invoke('update:install'),
+		onReady: (callback) => {
+			const listener = (_event, version) => callback(version);
+			ipcRenderer.on('update:ready', listener);
+			return () => ipcRenderer.removeListener('update:ready', listener);
+		},
+	},
+
 	onReady: (callback) => {
 		const listener = () => callback();
 		ipcRenderer.on('backend:ready', listener);
