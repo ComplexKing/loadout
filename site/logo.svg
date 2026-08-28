@@ -1,0 +1,40 @@
+<!--
+	The Loadout mark: a cube with one block lifted clear of it.
+
+	Minecraft and modularity in one shape. The gap between the two is cut rather than
+	implied, because at sixteen pixels a shape that merely almost touches has merged.
+
+	Generated from the same geometry as the PNGs, so the two cannot drift apart.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Loadout">
+	<defs>
+		<linearGradient id="loadout-badge" x1="0" y1="0" x2="1" y2="1">
+			<stop offset="0" stop-color="#46da91"/>
+			<stop offset="1" stop-color="#35c37d"/>
+		</linearGradient>
+		<clipPath id="loadout-clip">
+			<rect width="512" height="512" rx="112"/>
+		</clipPath>
+	</defs>
+
+	<rect width="512" height="512" rx="112" fill="url(#loadout-badge)"/>
+
+	<g clip-path="url(#loadout-clip)">
+		<!-- The cube below, with the lifted block's halo taken back out of it. -->
+		<mask id="loadout-halo">
+			<rect width="512" height="512" fill="white"/>
+			<polygon points="256.0,57.1 393.8,126.0 256.0,194.9 118.2,126.0" fill="black"/>
+			<polygon points="118.2,126.0 256.0,194.9 256.0,276.9 118.2,208.0" fill="black"/>
+			<polygon points="393.8,126.0 256.0,194.9 256.0,276.9 393.8,208.0" fill="black"/>
+		</mask>
+		<g mask="url(#loadout-halo)">
+			<polygon points="88.0,284.0 256.0,368.0 256.0,468.0 88.0,384.0" fill="#06251a"/>
+			<polygon points="424.0,284.0 256.0,368.0 256.0,468.0 424.0,384.0" fill="#06251a"/>
+			<polygon points="256.0,200.0 424.0,284.0 256.0,368.0 88.0,284.0" fill="#15553b"/>
+		</g>
+
+		<polygon points="168.6,132.0 256.0,175.7 256.0,227.7 168.6,184.0" fill="#06251a"/>
+		<polygon points="343.4,132.0 256.0,175.7 256.0,227.7 343.4,184.0" fill="#06251a"/>
+		<polygon points="256.0,88.3 343.4,132.0 256.0,175.7 168.6,132.0" fill="#15553b"/>
+	</g>
+</svg>

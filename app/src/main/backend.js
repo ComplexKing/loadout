@@ -50,12 +50,40 @@ class Backend {
 	 *
 	 * @returns {Promise<{port: number, token: string}>}
 	 */
+	/**
+	 * The Java to run the jar with.
+	 *
+	 * <p>Prefers the runtime shipped beside the app. Loadout needs Java 21 and a machine
+	 * that has never run a Java program has none -- asking somebody to go and install a JDK
+	 * before an installer will work is most of the reason people give up on a launcher.
+	 * The bundled one is minimal: the eight modules the jar actually uses, about 50 MB.
+	 *
+	 * <p>Falls back to JAVA_HOME and then the PATH, which is what a checkout uses.
+	 */
+	static javaPath() {
+		const exe = process.platform === 'win32' ? 'java.exe' : 'java';
+
+		const candidates = [];
+		if (process.resourcesPath && !process.defaultApp) {
+			candidates.push(path.join(process.resourcesPath, 'runtime', 'bin', exe));
+		}
+		candidates.push(path.resolve(__dirname, '..', '..', 'runtime', 'bin', exe));
+		if (process.env.JAVA_HOME) {
+			candidates.push(path.join(process.env.JAVA_HOME, 'bin', exe));
+		}
+
+		for (const candidate of candidates) {
+			if (fs.existsSync(candidate)) {
+				return candidate;
+			}
+		}
+		return 'java';
+	}
+
 	start() {
 		return new Promise((resolve, reject) => {
 			const jar = Backend.jarPath();
-			const java = process.env.JAVA_HOME
-				? path.join(process.env.JAVA_HOME, 'bin', 'java')
-				: 'java';
+			const java = Backend.javaPath();
 
 			this.process = spawn(java, ['-jar', jar, 'serve'], {
 				// Inherit nothing: stdout carries the handshake and stderr carries faults,

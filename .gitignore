@@ -29,3 +29,7 @@ accounts.json
 # Electron app dependencies and build output.
 app/node_modules/
 app/dist/
+
+# jlink output, rebuilt by scripts/runtime.mjs
+app/runtime/
+build/release/

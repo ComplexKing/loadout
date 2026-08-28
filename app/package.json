@@ -9,7 +9,8 @@
     "start": "electron .",
     "dev": "electron . --dev",
     "pack": "electron-builder --dir",
-    "dist": "electron-builder"
+    "dist": "node ../scripts/runtime.mjs && electron-builder",
+    "runtime": "node ../scripts/runtime.mjs"
   },
   "devDependencies": {
     "electron": "^44.0.0",
@@ -18,17 +19,51 @@
   "build": {
     "appId": "dev.loadout.app",
     "productName": "Loadout",
-    "files": ["src/**/*", "assets/**/*", "package.json"],
-    "//icon": "electron-builder picks icon.ico on Windows and the largest PNG elsewhere. Without assets in files above, the window icon path would resolve to nothing in a packaged build.",
+    "files": [
+      "src/**/*",
+      "assets/**/*",
+      "package.json"
+    ],
     "icon": "assets/icon.ico",
     "extraResources": [
       {
         "from": "../build/dist/loadout.jar",
         "to": "loadout.jar"
+      },
+      {
+        "from": "runtime",
+        "to": "runtime"
       }
     ],
-    "win": { "target": "nsis", "icon": "assets/icon.ico" },
-    "linux": { "target": "AppImage", "category": "Game", "icon": "assets/icon-512.png" },
-    "mac": { "target": "dmg", "icon": "assets/icon-512.png" }
+    "win": {
+      "target": [
+        "nsis"
+      ],
+      "icon": "assets/icon.ico",
+      "artifactName": "Loadout-Setup-${version}.${ext}"
+    },
+    "linux": {
+      "target": [
+        "AppImage"
+      ],
+      "category": "Game",
+      "icon": "assets/icon-512.png"
+    },
+    "mac": {
+      "target": [
+        "dmg"
+      ],
+      "icon": "assets/icon-512.png"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "shortcutName": "Loadout"
+    },
+    "directories": {
+      "output": "../build/release"
+    }
   }
 }
