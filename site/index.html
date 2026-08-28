@@ -4,75 +4,69 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="description" content="A Minecraft launcher whose companion mod puts the mod list inside the game. Toggle a mod and land back on the same server about ten seconds later.">
-	<title>Loadout</title>
-	<link rel="preconnect" href="https://fonts.googleapis.com">
-	<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-	<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
-</head>
-<body>
+<meta property="og:title" content="Loadout">
+<meta property="og:description" content="Change a mod without losing your place.">
+<meta property="og:type" content="website">
+<title>Loadout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <style>
-	/*
-		Palette: near-black with a green bias in the neutrals rather than a pure grey, so
-		the accent looks native to the ground rather than dropped onto it. Light theme is
-		the same hues rotated, not an inversion.
-	*/
-	:root {
-		--ground: #f2f6f3;
-		--surface: #ffffff;
-		--surface-2: #e9efeb;
-		--line: #d3ded7;
-		--line-soft: #e3ebe6;
-		--ink: #101613;
-		--ink-2: #3d4a43;
-		--muted: #55665d;
-		--accent: #137442;
-		--accent-2: #0d5f36;
-		--accent-ink: #ffffff;
-		--accent-wash: rgba(19, 116, 66, 0.06);
-		--warn: #8a5205;
-		--hud-bg: #0a0d10;
-		--hud-line: #2a3540;
-		--grid: rgba(16, 22, 19, 0.055);
-		--shadow: 0 1px 2px rgba(16, 22, 19, 0.05), 0 12px 32px -12px rgba(16, 22, 19, 0.16);
+/*
+	Loadout — landing page.
 
-		--display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
-		--body: "Public Sans", "Segoe UI", system-ui, sans-serif;
-		--mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+	Built on an isometric substrate, because the thing this launches is made of cubes.
+	Surfaces are translucent and sit over that lattice, so the grid reads through them and
+	the page feels like one material rather than a stack of separate cards.
+*/
 
-		--measure: 62ch;
-		--pad: clamp(20px, 5vw, 56px);
-	}
+:root {
+	--ground: #f2f6f3;
+	--ground-2: #e7eee9;
+	--glass: rgba(255, 255, 255, 0.72);
+	--glass-2: rgba(255, 255, 255, 0.52);
+	--glass-line: rgba(16, 22, 19, 0.10);
+	--glass-hi: rgba(255, 255, 255, 0.9);
+	--surface-2: #e9efeb;
+	--line: #d3ded7;
+	--line-soft: #e3ebe6;
+	--ink: #101613;
+	--ink-2: #38453e;
+	--muted: #55665d;
+	--accent: #137442;
+	--accent-2: #0d5f36;
+	--accent-ink: #ffffff;
+	--accent-wash: rgba(19, 116, 66, 0.06);
+	--accent-glow: rgba(19, 116, 66, 0.16);
+	--warn: #8a5205;
+	--warn-wash: rgba(224, 166, 63, 0.16);
+	--hud-bg: #0a0d10;
+	--hud-line: #2a3540;
+	--grid: rgba(16, 22, 19, 0.06);
+	--shadow: 0 1px 2px rgba(16, 22, 19, 0.04), 0 14px 34px -14px rgba(16, 22, 19, 0.16);
+	--shadow-lift: 0 2px 4px rgba(16, 22, 19, 0.05), 0 26px 54px -18px rgba(16, 22, 19, 0.24);
 
+	--display: "Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+	--body: "Public Sans", "Segoe UI", system-ui, sans-serif;
+	--mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+
+	--measure: 62ch;
+	--pad: clamp(20px, 5vw, 56px);
+	--r: 14px;
+	--r-lg: 20px;
+	--ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root:not([data-theme="light"]) { color-scheme: dark; }
+
+@media (prefers-color-scheme: dark) {
 	:root:not([data-theme="light"]) {
-		color-scheme: dark;
-	}
-
-	@media (prefers-color-scheme: dark) {
-		:root:not([data-theme="light"]) {
-			--ground: #0d1014;
-			--surface: #141a1e;
-			--surface-2: #1a2126;
-			--line: #263038;
-			--line-soft: #1d252b;
-			--ink: #e8f1eb;
-			--ink-2: #b9c9c0;
-			--muted: #869a90;
-			--accent: #3ed17e;
-			--accent-2: #58e394;
-			--accent-ink: #062015;
-			--accent-wash: rgba(62, 209, 126, 0.12);
-			--warn: #e0a63f;
-			--hud-bg: #05080b;
-			--hud-line: #384a58;
-			--grid: rgba(232, 241, 235, 0.05);
-			--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 44px -16px rgba(0, 0, 0, 0.7);
-		}
-	}
-
-	:root[data-theme="dark"] {
-		color-scheme: dark;
-		--ground: #0d1014;
-		--surface: #141a1e;
+		--ground: #0b0e12;
+		--ground-2: #0f1318;
+		--glass: rgba(28, 36, 43, 0.55);
+		--glass-2: rgba(28, 36, 43, 0.34);
+		--glass-line: rgba(232, 241, 235, 0.10);
+		--glass-hi: rgba(232, 241, 235, 0.16);
 		--surface-2: #1a2126;
 		--line: #263038;
 		--line-soft: #1d252b;
@@ -83,539 +77,571 @@
 		--accent-2: #58e394;
 		--accent-ink: #062015;
 		--accent-wash: rgba(62, 209, 126, 0.12);
+		--accent-glow: rgba(62, 209, 126, 0.22);
 		--warn: #e0a63f;
+		--warn-wash: rgba(224, 166, 63, 0.14);
 		--hud-bg: #05080b;
 		--hud-line: #384a58;
-		--grid: rgba(232, 241, 235, 0.05);
+		--grid: rgba(232, 241, 235, 0.055);
 		--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 44px -16px rgba(0, 0, 0, 0.7);
+		--shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.5), 0 30px 60px -18px rgba(0, 0, 0, 0.85);
 	}
+}
 
-	* { box-sizing: border-box; }
+:root[data-theme="dark"] {
+	color-scheme: dark;
+	--ground: #0b0e12;
+	--ground-2: #0f1318;
+	--glass: rgba(28, 36, 43, 0.55);
+	--glass-2: rgba(28, 36, 43, 0.34);
+	--glass-line: rgba(232, 241, 235, 0.10);
+	--glass-hi: rgba(232, 241, 235, 0.16);
+	--surface-2: #1a2126;
+	--line: #263038;
+	--line-soft: #1d252b;
+	--ink: #e8f1eb;
+	--ink-2: #b9c9c0;
+	--muted: #869a90;
+	--accent: #3ed17e;
+	--accent-2: #58e394;
+	--accent-ink: #062015;
+	--accent-wash: rgba(62, 209, 126, 0.12);
+	--accent-glow: rgba(62, 209, 126, 0.22);
+	--warn: #e0a63f;
+	--warn-wash: rgba(224, 166, 63, 0.14);
+	--hud-bg: #05080b;
+	--hud-line: #384a58;
+	--grid: rgba(232, 241, 235, 0.055);
+	--shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 44px -16px rgba(0, 0, 0, 0.7);
+	--shadow-lift: 0 2px 6px rgba(0, 0, 0, 0.5), 0 30px 60px -18px rgba(0, 0, 0, 0.85);
+}
 
-	body {
-		margin: 0;
-		background: var(--ground);
-		color: var(--ink);
-		font-family: var(--body);
-		font-size: 17px;
-		line-height: 1.62;
-		-webkit-font-smoothing: antialiased;
-	}
+* { box-sizing: border-box; }
 
-	/*
-		An isometric lattice, because the thing this launches is made of cubes. Two 30-degree
-		gradient sets plus a vertical one give the same three axes the logo is drawn on.
-	*/
-	.iso {
-		position: relative;
-		isolation: isolate;
-	}
-	.iso::before {
-		content: "";
-		position: absolute;
-		inset: 0;
-		z-index: -1;
-		background-image:
-			repeating-linear-gradient(30deg, var(--grid) 0 1px, transparent 1px 64px),
-			repeating-linear-gradient(-30deg, var(--grid) 0 1px, transparent 1px 64px),
-			repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px 64px);
-		mask-image: radial-gradient(120% 80% at 50% 0%, #000 20%, transparent 75%);
-		pointer-events: none;
-	}
+body {
+	margin: 0;
+	background: var(--ground);
+	color: var(--ink);
+	font-family: var(--body);
+	font-size: 17px;
+	line-height: 1.62;
+	-webkit-font-smoothing: antialiased;
+	overflow-x: hidden;
+}
 
-	.wrap {
-		max-width: 1080px;
-		margin: 0 auto;
-		padding-inline: var(--pad);
-	}
+/* The lattice, fixed so surfaces slide over it rather than carrying their own copy. */
+.lattice {
+	position: fixed;
+	inset: 0;
+	z-index: -2;
+	pointer-events: none;
+	background-image:
+		repeating-linear-gradient(30deg, var(--grid) 0 1px, transparent 1px 68px),
+		repeating-linear-gradient(-30deg, var(--grid) 0 1px, transparent 1px 68px),
+		repeating-linear-gradient(90deg, var(--grid) 0 1px, transparent 1px 68px);
+}
 
-	h1, h2, h3 {
-		font-family: var(--display);
-		font-weight: 800;
-		letter-spacing: -0.022em;
-		text-wrap: balance;
-		margin: 0;
-		line-height: 1.08;
-	}
+/* A soft accent bloom behind the hero, so the top of the page has somewhere to look. */
+.bloom {
+	position: fixed;
+	top: -22vh;
+	left: 50%;
+	width: min(1100px, 130vw);
+	height: 70vh;
+	transform: translateX(-50%);
+	z-index: -1;
+	pointer-events: none;
+	background: radial-gradient(50% 50% at 50% 50%, var(--accent-glow) 0%, transparent 70%);
+	opacity: 0.75;
+}
 
-	p { margin: 0; max-width: var(--measure); }
+.wrap { max-width: 1100px; margin: 0 auto; padding-inline: var(--pad); }
 
-	a { color: var(--accent); text-decoration-thickness: 1px; text-underline-offset: 3px; }
-	a:focus-visible, button:focus-visible {
-		outline: 2px solid var(--accent);
-		outline-offset: 3px;
-		border-radius: 4px;
-	}
+h1, h2, h3 {
+	font-family: var(--display);
+	font-weight: 800;
+	letter-spacing: -0.022em;
+	text-wrap: balance;
+	margin: 0;
+	line-height: 1.08;
+}
+p { margin: 0; max-width: var(--measure); }
 
-	.eyebrow {
-		font-family: var(--mono);
-		font-size: 11.5px;
-		font-weight: 500;
-		letter-spacing: 0.13em;
-		text-transform: uppercase;
-		color: var(--muted);
-		margin: 0;
-	}
+a { color: var(--accent); text-underline-offset: 3px; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 6px; }
 
-	/* ---------------------------------------------------------------- masthead */
+.eyebrow {
+	font-family: var(--mono);
+	font-size: 11.5px;
+	font-weight: 500;
+	letter-spacing: 0.13em;
+	text-transform: uppercase;
+	color: var(--muted);
+	margin: 0;
+}
 
-	.masthead {
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		padding-block: 26px;
-	}
-	.masthead .name {
-		font-family: var(--display);
-		font-weight: 800;
-		font-size: 19px;
-		letter-spacing: -0.02em;
-	}
-	.masthead nav {
-		margin-left: auto;
-		display: flex;
-		gap: 26px;
-		font-size: 14.5px;
-	}
-	.masthead nav a { color: var(--ink-2); text-decoration: none; }
-	.masthead nav a:hover { color: var(--accent); }
-	@media (max-width: 620px) { .masthead nav { display: none; } }
+/* ------------------------------------------------------------------ glass surfaces */
 
-	.logo { width: 30px; height: 30px; border-radius: 7px; display: block; }
+.glass {
+	background: var(--glass);
+	border: 1px solid var(--glass-line);
+	border-radius: var(--r-lg);
+	box-shadow: var(--shadow);
+	backdrop-filter: blur(14px) saturate(1.25);
+	-webkit-backdrop-filter: blur(14px) saturate(1.25);
+}
 
-	/* ---------------------------------------------------------------- hero */
+/* A hairline of light along the top edge, which is what stops glass looking like haze. */
+.glass::before {
+	content: "";
+	position: absolute;
+	inset: 0 0 auto 0;
+	height: 1px;
+	border-radius: var(--r-lg) var(--r-lg) 0 0;
+	background: linear-gradient(90deg, transparent, var(--glass-hi) 22%, var(--glass-hi) 78%, transparent);
+	pointer-events: none;
+}
+.glass { position: relative; }
 
-	.hero {
-		display: grid;
-		gap: clamp(38px, 6vw, 64px);
-		padding-block: clamp(48px, 8vw, 96px) clamp(56px, 9vw, 104px);
-		grid-template-columns: minmax(0, 1fr);
-	}
-	@media (min-width: 940px) {
-		.hero { grid-template-columns: minmax(0, 1.06fr) minmax(0, 1fr); align-items: center; }
-	}
+/* ------------------------------------------------------------------ masthead */
 
-	.hero h1 {
-		font-size: clamp(42px, 7.2vw, 76px);
-		font-weight: 800;
-		margin-bottom: 22px;
-	}
-	.hero h1 em {
-		font-style: normal;
-		color: var(--accent);
-	}
-	.hero .lede {
-		font-size: clamp(17px, 2vw, 19.5px);
-		color: var(--ink-2);
-		margin-bottom: 30px;
-	}
+.masthead {
+	position: sticky;
+	top: 0;
+	z-index: 40;
+	backdrop-filter: blur(12px) saturate(1.2);
+	-webkit-backdrop-filter: blur(12px) saturate(1.2);
+	background: color-mix(in srgb, var(--ground) 72%, transparent);
+	border-bottom: 1px solid transparent;
+	transition: border-color .25s var(--ease), background .25s var(--ease);
+}
+.masthead.stuck {
+	border-bottom-color: var(--glass-line);
+	background: color-mix(in srgb, var(--ground) 88%, transparent);
+}
+.masthead-in { display: flex; align-items: center; gap: 12px; padding-block: 16px; }
+.masthead .name { font-family: var(--display); font-weight: 800; font-size: 19px; letter-spacing: -0.02em; }
+.masthead nav { margin-left: auto; display: flex; gap: 4px; }
+.masthead nav a {
+	color: var(--ink-2);
+	text-decoration: none;
+	font-size: 14px;
+	padding: 7px 12px;
+	border-radius: 8px;
+	transition: color .18s, background .18s;
+}
+.masthead nav a:hover { color: var(--ink); background: var(--accent-wash); }
+@media (max-width: 720px) { .masthead nav { display: none; } }
 
-	.cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-	.btn {
-		font-family: var(--body);
-		font-size: 15px;
-		font-weight: 600;
-		padding: 11px 20px;
-		border-radius: 9px;
-		border: 1px solid transparent;
-		text-decoration: none;
-		display: inline-flex;
-		align-items: center;
-		gap: 9px;
-		transition: transform .12s ease, background .12s ease, border-color .12s ease;
-	}
-	.btn.primary { background: var(--accent); color: var(--accent-ink); }
-	.btn.primary:hover { background: var(--accent-2); transform: translateY(-1px); }
-	.btn.ghost { border-color: var(--line); color: var(--ink); background: var(--surface); }
-	.btn.ghost:hover { border-color: var(--accent); color: var(--accent); }
+.logo { width: 30px; height: 30px; border-radius: 8px; display: block; }
 
-	.hero-note {
-		font-family: var(--mono);
-		font-size: 12.5px;
-		color: var(--muted);
-		margin-top: 20px;
-	}
+/* ------------------------------------------------------------------ buttons */
 
-	/* --------------------------------------------------- the in-game panel mock */
+.btn {
+	font-family: var(--body);
+	font-size: 15px;
+	font-weight: 600;
+	padding: 12px 21px;
+	border-radius: 11px;
+	border: 1px solid transparent;
+	text-decoration: none;
+	display: inline-flex;
+	align-items: center;
+	gap: 9px;
+	cursor: pointer;
+	transition: transform .16s var(--ease), background .16s, border-color .16s, box-shadow .16s;
+}
+.btn.primary {
+	background: var(--accent);
+	color: var(--accent-ink);
+	box-shadow: 0 6px 18px -6px var(--accent-glow);
+}
+.btn.primary:hover { background: var(--accent-2); transform: translateY(-2px); box-shadow: 0 12px 26px -8px var(--accent-glow); }
+.btn.ghost { border-color: var(--glass-line); color: var(--ink); background: var(--glass-2); }
+.btn.ghost:hover { border-color: var(--accent); color: var(--accent); transform: translateY(-2px); }
+/* The press: everything interactive here shrinks a little under the pointer. */
+.btn:active { transform: translateY(0) scale(0.97); }
 
-	.panel {
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: 14px;
-		box-shadow: var(--shadow);
-		overflow: hidden;
-	}
-	.panel-bar {
-		display: flex;
-		align-items: center;
-		gap: 8px;
-		padding: 11px 14px;
-		border-bottom: 1px solid var(--line-soft);
-		background: var(--surface-2);
-		font-family: var(--mono);
-		font-size: 11.5px;
-		color: var(--muted);
-		letter-spacing: 0.04em;
-	}
-	.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--line); }
-	.dot.live { background: var(--accent); }
+/* ------------------------------------------------------------------ hero */
 
-	.rows { padding: 10px; display: flex; flex-direction: column; gap: 6px; }
-	.row {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
-		align-items: center;
-		gap: 12px;
-		padding: 10px 12px;
-		border-radius: 9px;
-		background: var(--surface-2);
-	}
-	.row .who { min-width: 0; }
-	.row .mod-name { font-weight: 600; font-size: 15px; }
-	.row .mod-file {
-		font-family: var(--mono);
-		font-size: 11.5px;
-		color: var(--muted);
-		overflow: hidden;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-	.pill {
-		font-family: var(--mono);
-		font-size: 11px;
-		font-weight: 500;
-		padding: 4px 9px;
-		border-radius: 999px;
-		letter-spacing: 0.03em;
-		white-space: nowrap;
-	}
-	.pill.on { background: var(--accent-wash); color: var(--accent); }
-	.pill.off { background: var(--surface); color: var(--muted); border: 1px solid var(--line); }
-	.pill.queued { background: rgba(224, 166, 63, 0.14); color: var(--warn); }
+.hero {
+	display: grid;
+	gap: clamp(38px, 6vw, 60px);
+	padding-block: clamp(44px, 7vw, 84px) clamp(52px, 8vw, 92px);
+	grid-template-columns: minmax(0, 1fr);
+}
+@media (min-width: 1000px) {
+	.hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1.02fr); align-items: center; }
+}
+.hero h1 { font-size: clamp(40px, 6.6vw, 70px); margin: 18px 0 20px; }
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero .lede { font-size: clamp(16.5px, 1.9vw, 19px); color: var(--ink-2); margin-bottom: 28px; }
+.cta-row { display: flex; flex-wrap: wrap; gap: 12px; }
+.hero-note { font-family: var(--mono); font-size: 12.5px; color: var(--muted); margin-top: 20px; }
 
-	.panel-foot {
-		border-top: 1px solid var(--line-soft);
-		padding: 13px 14px;
-		display: flex;
-		align-items: center;
-		gap: 12px;
-		flex-wrap: wrap;
-		background: var(--surface-2);
-	}
-	.panel-foot .queued-note {
-		font-size: 13px;
-		color: var(--warn);
-		font-weight: 500;
-	}
-	.apply {
-		margin-left: auto;
-		font-family: var(--body);
-		font-size: 13.5px;
-		font-weight: 600;
-		background: var(--accent);
-		color: var(--accent-ink);
-		border: 0;
-		border-radius: 8px;
-		padding: 8px 15px;
-		cursor: pointer;
-	}
-	.apply:hover { background: var(--accent-2); }
+/* ------------------------------------------------------------------ the demo panel */
 
-	/* ---------------------------------------------------------------- sections */
+.demo { overflow: hidden; }
+.demo-tabs {
+	display: flex;
+	gap: 2px;
+	padding: 8px 8px 0;
+	border-bottom: 1px solid var(--glass-line);
+	background: var(--glass-2);
+	overflow-x: auto;
+	scrollbar-width: none;
+}
+.demo-tabs::-webkit-scrollbar { display: none; }
+.demo-tab {
+	font-family: var(--body);
+	font-size: 13px;
+	font-weight: 600;
+	color: var(--muted);
+	background: none;
+	border: 0;
+	padding: 10px 14px;
+	border-radius: 9px 9px 0 0;
+	cursor: pointer;
+	white-space: nowrap;
+	position: relative;
+	transition: color .18s, background .18s;
+}
+.demo-tab:hover { color: var(--ink); }
+.demo-tab[aria-selected="true"] { color: var(--ink); background: var(--glass); }
+.demo-tab[aria-selected="true"]::after {
+	content: "";
+	position: absolute;
+	left: 12px; right: 12px; bottom: -1px;
+	height: 2px;
+	border-radius: 2px;
+	background: var(--accent);
+}
 
-	section { padding-block: clamp(56px, 8vw, 96px); }
-	section + section { border-top: 1px solid var(--line-soft); }
+.demo-body { padding: 12px; display: grid; gap: 7px; min-height: 268px; align-content: start; }
 
-	.section-head { margin-bottom: clamp(30px, 4vw, 46px); display: grid; gap: 14px; }
-	.section-head h2 { font-size: clamp(28px, 4vw, 40px); }
-	.section-head p { color: var(--ink-2); }
+.row {
+	display: grid;
+	grid-template-columns: 30px minmax(0, 1fr) auto;
+	align-items: center;
+	gap: 12px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	background: var(--glass-2);
+	border: 1px solid transparent;
+	transition: transform .18s var(--ease), border-color .18s, background .18s;
+}
+.row:hover { border-color: var(--glass-line); transform: translateX(2px); }
+.row .glyph {
+	width: 30px; height: 30px;
+	border-radius: 8px;
+	display: grid; place-items: center;
+	background: var(--accent-wash);
+	color: var(--accent);
+	font-family: var(--mono); font-size: 13px; font-weight: 700;
+}
+.row .who { min-width: 0; }
+.row .mod-name { font-weight: 600; font-size: 14.5px; }
+.row .mod-file {
+	font-family: var(--mono); font-size: 11px; color: var(--muted);
+	overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
 
-	.cards {
-		display: grid;
-		gap: 18px;
-		grid-template-columns: repeat(auto-fit, minmax(268px, 1fr));
-	}
-	.card {
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: 13px;
-		padding: 24px 22px;
-		display: grid;
-		gap: 11px;
-		align-content: start;
-	}
-	.card h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.014em; }
-	.card p { font-size: 15px; color: var(--ink-2); }
-	.card .when {
-		font-family: var(--mono);
-		font-size: 11px;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-	}
-	.card .when.now { color: var(--accent); }
-	.card .when.next { color: var(--warn); }
+.toggle {
+	font-family: var(--mono);
+	font-size: 11px;
+	font-weight: 500;
+	letter-spacing: 0.03em;
+	padding: 5px 11px;
+	border-radius: 999px;
+	border: 1px solid transparent;
+	cursor: pointer;
+	min-width: 74px;
+	text-align: center;
+	transition: transform .16s var(--ease), background .18s, color .18s, border-color .18s;
+}
+.toggle:hover { transform: translateY(-1px); }
+.toggle:active { transform: scale(0.94); }
+.toggle[data-state="on"] { background: var(--accent-wash); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
+.toggle[data-state="off"] { background: transparent; color: var(--muted); border-color: var(--glass-line); }
+.toggle[data-state="queued"] { background: var(--warn-wash); color: var(--warn); border-color: color-mix(in srgb, var(--warn) 34%, transparent); }
 
-	/* ---------------------------------------------------------------- speed */
+/* A change that has just landed pulses once, so "this applied now" is visible. */
+@keyframes landed {
+	0% { box-shadow: 0 0 0 0 var(--accent-glow); }
+	100% { box-shadow: 0 0 0 12px transparent; }
+}
+.row.landed { animation: landed .7s var(--ease); }
 
-	.speed-grid {
-		display: grid;
-		gap: clamp(28px, 4vw, 48px);
-		grid-template-columns: minmax(0, 1fr);
-		align-items: start;
-	}
-	@media (min-width: 880px) { .speed-grid { grid-template-columns: 1fr 1.15fr; } }
+.demo-foot {
+	border-top: 1px solid var(--glass-line);
+	padding: 12px 14px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
+	flex-wrap: wrap;
+	background: var(--glass-2);
+	min-height: 58px;
+}
+.demo-status { font-size: 13px; color: var(--muted); transition: color .2s; }
+.demo-status.pending { color: var(--warn); font-weight: 500; }
+.demo-status.live { color: var(--accent); font-weight: 500; }
+.demo-apply {
+	margin-left: auto;
+	font-family: var(--body); font-size: 13px; font-weight: 600;
+	background: var(--accent); color: var(--accent-ink);
+	border: 0; border-radius: 9px; padding: 9px 15px;
+	cursor: pointer;
+	transition: transform .16s var(--ease), opacity .2s, background .16s;
+}
+.demo-apply:hover { background: var(--accent-2); transform: translateY(-1px); }
+.demo-apply:active { transform: scale(0.96); }
+.demo-apply[hidden] { display: none; }
 
-	.bigstat {
-		display: grid;
-		gap: 6px;
-		padding: 26px 24px;
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-radius: 13px;
-	}
-	.bigstat .from {
-		font-family: var(--mono);
-		font-size: 15px;
-		color: var(--muted);
-		text-decoration: line-through;
-		text-decoration-color: var(--muted);
-	}
-	.bigstat .to {
-		font-family: var(--display);
-		font-weight: 800;
-		font-size: clamp(46px, 8vw, 68px);
-		line-height: 1;
-		color: var(--accent);
-		letter-spacing: -0.03em;
-	}
-	.bigstat .cap { font-size: 14.5px; color: var(--ink-2); }
+/* The restart, played out rather than described. */
+.relaunch { display: grid; gap: 10px; padding: 6px 2px; }
+.relaunch-step {
+	display: grid; grid-template-columns: 18px 1fr; gap: 11px; align-items: center;
+	font-size: 13.5px; color: var(--muted);
+	opacity: 0.35;
+	transition: opacity .3s var(--ease), color .3s;
+}
+.relaunch-step.active { opacity: 1; color: var(--ink); }
+.relaunch-step.done { opacity: 1; color: var(--muted); }
+.relaunch-dot {
+	width: 14px; height: 14px; border-radius: 50%;
+	border: 2px solid currentColor;
+	position: relative;
+}
+.relaunch-step.done .relaunch-dot { background: var(--accent); border-color: var(--accent); }
+.relaunch-step.active .relaunch-dot { border-color: var(--accent); }
+.relaunch-time { font-family: var(--mono); font-size: 11.5px; color: var(--muted); margin-left: auto; }
 
-	.table-scroll { overflow-x: auto; }
-	table {
-		width: 100%;
-		border-collapse: collapse;
-		font-size: 14.5px;
-		min-width: 440px;
-	}
-	th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line-soft); }
-	th {
-		font-family: var(--mono);
-		font-size: 10.5px;
-		letter-spacing: 0.11em;
-		text-transform: uppercase;
-		color: var(--muted);
-		font-weight: 500;
-	}
-	td.num {
-		font-family: var(--mono);
-		font-variant-numeric: tabular-nums;
-		text-align: right;
-		white-space: nowrap;
-	}
-	td.was { color: var(--muted); }
-	td.now { color: var(--accent); font-weight: 500; }
-	tbody tr:last-child td { border-bottom: 0; }
-	caption {
-		caption-side: bottom;
-		padding-top: 14px;
-		font-size: 13px;
-		color: var(--muted);
-		text-align: left;
-	}
+/* ------------------------------------------------------------------ sections */
 
-	/* ---------------------------------------------------------------- overlay demo */
+section { padding-block: clamp(56px, 8vw, 96px); position: relative; }
+section + section { border-top: 1px solid var(--line-soft); }
+.section-head { margin-bottom: clamp(28px, 4vw, 44px); display: grid; gap: 14px; }
+.section-head h2 { font-size: clamp(27px, 3.8vw, 40px); }
+.section-head p { color: var(--ink-2); }
 
-	.overlay-demo {
-		font-family: var(--mono);
-		font-size: 13px;
-		background: var(--hud-bg);
-		color: #e0e0e0;
-		border: 1px solid var(--hud-line);
-		border-radius: 12px;
-		padding: 16px 18px;
-		display: grid;
-		gap: 5px;
-		overflow-x: auto;
-	}
-	.overlay-demo .dim { color: #9a9a9a; }
-	.overlay-demo b { color: #fff; font-weight: 500; }
-	.overlay-demo .hi { color: #58e394; }
+.cards { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(262px, 1fr)); }
+.card {
+	padding: 24px 22px;
+	display: grid; gap: 11px; align-content: start;
+	transition: transform .22s var(--ease), box-shadow .22s var(--ease), border-color .22s;
+}
+.card:hover { transform: translateY(-4px); box-shadow: var(--shadow-lift); border-color: color-mix(in srgb, var(--accent) 26%, var(--glass-line)); }
+.card h3 { font-size: 19px; font-weight: 600; letter-spacing: -0.014em; }
+.card p { font-size: 15px; color: var(--ink-2); }
+.card .when { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; }
+.card .when.now { color: var(--accent); }
+.card .when.next { color: var(--warn); }
 
-	/* ---------------------------------------------------------------- honesty */
+/* ------------------------------------------------------------------ speed */
 
-	.cant {
-		background: var(--surface);
-		border: 1px solid var(--line);
-		border-left: 3px solid var(--warn);
-		border-radius: 0 13px 13px 0;
-		padding: 26px clamp(22px, 3vw, 34px);
-		display: grid;
-		gap: 14px;
-	}
-	.cant h3 { font-size: 21px; font-weight: 600; }
-	.cant p { color: var(--ink-2); font-size: 15.5px; }
+.speed-grid { display: grid; gap: clamp(24px, 4vw, 44px); grid-template-columns: minmax(0, 1fr); align-items: start; }
+@media (min-width: 900px) { .speed-grid { grid-template-columns: 0.85fr 1.15fr; } }
 
-	/* ---------------------------------------------------------------- install */
+.bigstat { padding: 26px 24px; display: grid; gap: 4px; }
+.bigstat .from { font-family: var(--mono); font-size: 15px; color: var(--muted); text-decoration: line-through; }
+.bigstat .to {
+	font-family: var(--display); font-weight: 800;
+	font-size: clamp(46px, 8vw, 66px); line-height: 1;
+	color: var(--accent); letter-spacing: -0.03em;
+	font-variant-numeric: tabular-nums;
+}
+.bigstat .cap { font-size: 14.5px; color: var(--ink-2); margin-top: 8px; }
 
-	.steps { display: grid; gap: 20px; counter-reset: step; }
-	.step {
-		display: grid;
-		grid-template-columns: auto minmax(0, 1fr);
-		gap: 16px;
-		align-items: start;
-	}
-	.step::before {
-		counter-increment: step;
-		content: counter(step);
-		font-family: var(--mono);
-		font-size: 12px;
-		font-weight: 700;
-		width: 26px;
-		height: 26px;
-		display: grid;
-		place-items: center;
-		border-radius: 7px;
-		background: var(--accent-wash);
-		color: var(--accent);
-		margin-top: 3px;
-	}
-	.step h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 5px; }
-	.step p { font-size: 14.5px; color: var(--ink-2); }
+.bars { display: grid; gap: 16px; }
+.bar-row { display: grid; gap: 7px; }
+.bar-head { display: flex; align-items: baseline; gap: 10px; font-size: 14px; }
+.bar-head .what { color: var(--ink); }
+.bar-head .nums { margin-left: auto; font-family: var(--mono); font-size: 12px; font-variant-numeric: tabular-nums; }
+.bar-head .was { color: var(--muted); text-decoration: line-through; }
+.bar-head .now { color: var(--accent); font-weight: 500; }
+.bar-track { height: 8px; border-radius: 999px; background: var(--glass-2); border: 1px solid var(--glass-line); overflow: hidden; position: relative; }
+.bar-was, .bar-now { position: absolute; inset: 0 auto 0 0; border-radius: 999px; }
+.bar-was { background: color-mix(in srgb, var(--muted) 45%, transparent); width: 0; transition: width 1.1s var(--ease); }
+.bar-now { background: var(--accent); width: 0; transition: width 1.1s var(--ease) .18s; }
 
-	pre {
-		font-family: var(--mono);
-		font-size: 13px;
-		background: var(--surface-2);
-		border: 1px solid var(--line-soft);
-		border-radius: 9px;
-		padding: 12px 14px;
-		margin: 10px 0 0;
-		overflow-x: auto;
-		color: var(--ink);
-	}
-	code { font-family: var(--mono); font-size: 0.92em; }
-	p code, li code {
-		background: var(--surface-2);
-		border: 1px solid var(--line-soft);
-		border-radius: 5px;
-		padding: 1px 5px;
-	}
+/* ------------------------------------------------------------------ overlay demo */
 
-	kbd {
-		font-family: var(--mono);
-		font-size: 11.5px;
-		border: 1px solid var(--line);
-		border-bottom-width: 2px;
-		border-radius: 5px;
-		padding: 2px 6px;
-		background: var(--surface);
-		color: var(--ink);
-	}
+.hud {
+	font-family: var(--mono); font-size: 13px;
+	background: var(--hud-bg); color: #e0e0e0;
+	border: 1px solid var(--hud-line);
+	border-radius: var(--r);
+	padding: 15px 17px;
+	display: grid; gap: 5px;
+	overflow-x: auto;
+	box-shadow: var(--shadow);
+}
+.hud .dim { color: #9a9a9a; }
+.hud b { color: #fff; font-weight: 500; }
+.hud .hi { color: #58e394; }
+.hud .num { font-variant-numeric: tabular-nums; }
 
-	/* ---------------------------------------------------------------- footer */
+.spark { width: 100%; height: 74px; display: block; margin-top: 12px; border-radius: 8px; }
 
-	footer {
-		border-top: 1px solid var(--line-soft);
-		padding-block: 34px 46px;
-		display: flex;
-		flex-wrap: wrap;
-		gap: 14px 26px;
-		align-items: center;
-		font-size: 13.5px;
-		color: var(--muted);
-	}
-	footer .spacer { margin-left: auto; }
-	footer a { color: var(--ink-2); text-decoration: none; }
-	footer a:hover { color: var(--accent); }
+/* ------------------------------------------------------------------ limits */
 
-	@media (prefers-reduced-motion: reduce) {
-		* { animation: none !important; transition: none !important; }
-	}
+.limit {
+	padding: 24px clamp(20px, 3vw, 30px);
+	display: grid; gap: 12px;
+	border-left: 3px solid var(--warn);
+	border-radius: 0 var(--r-lg) var(--r-lg) 0;
+}
+.limit h3 { font-size: 19px; font-weight: 600; }
+.limit p { color: var(--ink-2); font-size: 15px; }
+
+.layers { display: grid; gap: 12px; margin-top: 6px; }
+.layer {
+	display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 14px;
+	padding: 16px 18px; border-radius: var(--r);
+	background: var(--glass-2); border: 1px solid var(--glass-line);
+	transition: transform .2s var(--ease), border-color .2s;
+}
+.layer:hover { transform: translateX(3px); border-color: color-mix(in srgb, var(--warn) 34%, transparent); }
+.layer .depth {
+	font-family: var(--mono); font-size: 10.5px; font-weight: 700;
+	letter-spacing: 0.06em; text-transform: uppercase;
+	color: var(--warn); background: var(--warn-wash);
+	padding: 4px 9px; border-radius: 7px; height: fit-content; white-space: nowrap;
+}
+.layer h4 { margin: 0 0 4px; font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.layer p { font-size: 14.5px; color: var(--ink-2); }
+
+/* ------------------------------------------------------------------ install */
+
+.steps { display: grid; gap: 18px; counter-reset: step; }
+.step { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 16px; align-items: start; }
+.step::before {
+	counter-increment: step; content: counter(step);
+	font-family: var(--mono); font-size: 12px; font-weight: 700;
+	width: 27px; height: 27px; display: grid; place-items: center;
+	border-radius: 8px; background: var(--accent-wash); color: var(--accent);
+	margin-top: 3px;
+}
+.step h3 { font-size: 16.5px; font-weight: 600; margin-bottom: 5px; }
+.step p { font-size: 14.5px; color: var(--ink-2); }
+
+pre {
+	font-family: var(--mono); font-size: 13px;
+	background: var(--glass-2); border: 1px solid var(--glass-line);
+	border-radius: 10px; padding: 12px 14px; margin: 10px 0 0;
+	overflow-x: auto; color: var(--ink);
+}
+code { font-family: var(--mono); font-size: 0.92em; }
+p code, li code, .layer code {
+	background: var(--glass-2); border: 1px solid var(--glass-line);
+	border-radius: 5px; padding: 1px 5px;
+}
+kbd {
+	font-family: var(--mono); font-size: 11.5px;
+	border: 1px solid var(--glass-line); border-bottom-width: 2px;
+	border-radius: 6px; padding: 2px 7px;
+	background: var(--glass); color: var(--ink);
+}
+
+footer {
+	border-top: 1px solid var(--line-soft);
+	padding-block: 32px 46px;
+	display: flex; flex-wrap: wrap; gap: 14px 26px; align-items: center;
+	font-size: 13.5px; color: var(--muted);
+}
+footer .spacer { margin-left: auto; }
+footer a { color: var(--ink-2); text-decoration: none; }
+footer a:hover { color: var(--accent); }
+
+/* ------------------------------------------------------------------ reveal */
+
+.reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s var(--ease), transform .6s var(--ease); }
+.reveal.in { opacity: 1; transform: none; }
+
+/*
+	A palette swap should not animate. The transitions on this page are for hover and for
+	state changes; running them across a theme change makes every element crossfade at
+	once, and leaves transitioned properties showing the old palette until they finish.
+*/
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+	transition: none !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	*, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
+	.reveal { opacity: 1; transform: none; }
+}
 </style>
+</head>
+<body>
+<div class="lattice" aria-hidden="true"></div>
+<div class="bloom" aria-hidden="true"></div>
 
-<div class="iso">
-	<div class="wrap">
-		<header class="masthead">
-			<svg class="logo" viewBox="0 0 512 512" aria-hidden="true">
-				<defs>
-					<linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-						<stop offset="0" stop-color="#46da91"/><stop offset="1" stop-color="#35c37d"/>
-					</linearGradient>
-				</defs>
-				<rect width="512" height="512" rx="112" fill="url(#lg)"/>
-				<polygon points="90.6,282.0 256.0,366.0 256.0,466.0 90.6,382.0" fill="#06251a"/>
-				<polygon points="421.4,282.0 256.0,366.0 256.0,466.0 421.4,382.0" fill="#06251a"/>
-				<polygon points="256.0,198.0 421.4,282.0 256.0,366.0 90.6,282.0" fill="#15553b"/>
-				<polygon points="170.6,132.0 256.0,175.7 256.0,227.7 170.6,184.0" fill="#06251a"/>
-				<polygon points="341.4,132.0 256.0,175.7 256.0,227.7 341.4,184.0" fill="#06251a"/>
-				<polygon points="256.0,88.3 341.4,132.0 256.0,175.7 170.6,132.0" fill="#15553b"/>
-			</svg>
-			<span class="name">Loadout</span>
-			<nav>
-				<a href="#what">What it does</a>
-				<a href="#speed">Speed</a>
-				<a href="#limits">Limits</a>
-				<a href="#install">Install</a>
-			</nav>
-		</header>
+<header class="masthead" id="masthead">
+	<div class="wrap masthead-in">
+		<svg class="logo" viewBox="0 0 512 512" aria-hidden="true">
+			<defs>
+				<linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+					<stop offset="0" stop-color="#46da91"/><stop offset="1" stop-color="#35c37d"/>
+				</linearGradient>
+			</defs>
+			<rect width="512" height="512" rx="112" fill="url(#lg)"/>
+			<polygon points="90.6,282 256,366 256,466 90.6,382" fill="#06251a"/>
+			<polygon points="421.4,282 256,366 256,466 421.4,382" fill="#06251a"/>
+			<polygon points="256,198 421.4,282 256,366 90.6,282" fill="#15553b"/>
+			<polygon points="170.6,132 256,175.7 256,227.7 170.6,184" fill="#06251a"/>
+			<polygon points="341.4,132 256,175.7 256,227.7 341.4,184" fill="#06251a"/>
+			<polygon points="256,88.3 341.4,132 256,175.7 170.6,132" fill="#15553b"/>
+		</svg>
+		<span class="name">Loadout</span>
+		<nav>
+			<a href="#try">Try it</a>
+			<a href="#speed">Speed</a>
+			<a href="#limits">Limits</a>
+			<a href="#install">Install</a>
+		</nav>
+	</div>
+</header>
 
-		<div class="hero">
-			<div>
-				<p class="eyebrow">Minecraft&nbsp;26.2 · Fabric · Client-side</p>
-				<h1 style="margin-top:18px">Change a mod without <em>losing your place</em>.</h1>
-				<p class="lede">
-					Loadout is a Minecraft launcher whose companion mod puts the mod list
-					inside the game. Toggle something, press one button, and you are back on
-					the same server about ten seconds later — instead of quitting to a menu,
-					finding a launcher window, and hunting for the server again.
-				</p>
-				<div class="cta-row">
-					<a class="btn primary" href="https://github.com/ComplexKing/loadout">Get Loadout</a>
-					<a class="btn ghost" href="#install">How it works</a>
-				</div>
-				<p class="hero-note">Open source · MIT · Not affiliated with Mojang</p>
+<div class="wrap">
+	<div class="hero">
+		<div>
+			<p class="eyebrow">Minecraft&nbsp;26.2 · Fabric · Client-side</p>
+			<h1>Change a mod without <em>losing your place</em>.</h1>
+			<p class="lede">
+				A Minecraft launcher whose companion mod puts the mod list inside the game.
+				Toggle something, press one button, and you are back on the same server about
+				ten seconds later — instead of quitting to a menu, finding a launcher window,
+				and hunting for the server again.
+			</p>
+			<div class="cta-row">
+				<a class="btn primary" href="https://github.com/ComplexKing/loadout">Get Loadout</a>
+				<a class="btn ghost" href="#try">Try the screen</a>
+			</div>
+			<p class="hero-note">Open source · MIT · Not affiliated with Mojang</p>
+		</div>
+
+		<!--
+			The real thing, playable. Toggling a mod queues it and the footer counts up;
+			toggling a pack applies immediately and the row pulses. That difference is the
+			whole product, and it is easier to feel than to read about.
+		-->
+		<div class="glass demo" id="try">
+			<div class="demo-tabs" role="tablist" aria-label="In-game screens">
+				<button class="demo-tab" role="tab" id="tab-mods" aria-controls="pane-mods" aria-selected="true">Mods</button>
+				<button class="demo-tab" role="tab" id="tab-packs" aria-controls="pane-packs" aria-selected="false">Resource packs</button>
+				<button class="demo-tab" role="tab" id="tab-perf" aria-controls="pane-perf" aria-selected="false">Frame times</button>
 			</div>
 
-			<div class="panel" role="img"
-			     aria-label="The in-game mod screen: Sodium and Iris on, Distant Horizons queued off, with an Apply and rejoin button.">
-				<div class="panel-bar">
-					<span class="dot live"></span>
-					<span>loadout · my survival world</span>
-				</div>
-				<div class="rows">
-					<div class="row">
-						<div class="who">
-							<div class="mod-name">sodium</div>
-							<div class="mod-file">sodium-0.6.13+mc26.2.jar</div>
-						</div>
-						<span class="pill on">On</span>
-					</div>
-					<div class="row">
-						<div class="who">
-							<div class="mod-name">iris</div>
-							<div class="mod-file">iris-1.8.11+mc26.2.jar</div>
-						</div>
-						<span class="pill on">On</span>
-					</div>
-					<div class="row">
-						<div class="who">
-							<div class="mod-name">distanthorizons</div>
-							<div class="mod-file">DistantHorizons-2.3.4-26.2.jar</div>
-						</div>
-						<span class="pill queued">Off next launch</span>
-					</div>
-					<div class="row">
-						<div class="who">
-							<div class="mod-name">modmenu</div>
-							<div class="mod-file">modmenu-20.0.1.jar</div>
-						</div>
-						<span class="pill on">On</span>
-					</div>
-				</div>
-				<div class="panel-foot">
-					<span class="queued-note">1 change will apply next launch</span>
-					<button class="apply" type="button">Apply and rejoin play.example.net</button>
-				</div>
+			<div class="demo-body" id="pane-mods" role="tabpanel" aria-labelledby="tab-mods"></div>
+			<div class="demo-body" id="pane-packs" role="tabpanel" aria-labelledby="tab-packs" hidden></div>
+			<div class="demo-body" id="pane-perf" role="tabpanel" aria-labelledby="tab-perf" hidden></div>
+
+			<div class="demo-foot">
+				<span class="demo-status" id="demo-status">Nothing waiting.</span>
+				<button class="demo-apply" id="demo-apply" hidden type="button"></button>
 			</div>
 		</div>
 	</div>
@@ -624,72 +650,70 @@
 <div class="wrap">
 
 	<section id="what">
-		<div class="section-head">
+		<div class="section-head reveal">
 			<p class="eyebrow">Two halves, kept apart on purpose</p>
 			<h2>Some changes happen now. Some happen next launch. The screen tells you which.</h2>
 			<p>
-				Fabric decides what is loaded during bootstrap, before any mod's code exists —
-				so nothing can add or remove a mod mid-session, and a launcher that implied
-				otherwise would be lying. Resource packs are different: the game already knows
-				how to rebuild its resources. Mixing the two in one list would make both harder
-				to trust, so they get separate screens.
+				Mixing the two in one list would make both harder to trust — nobody should have
+				to remember which rows apply immediately. So they get separate screens, and each
+				says plainly which kind it is.
 			</p>
 		</div>
 
 		<div class="cards">
-			<article class="card">
+			<article class="card glass reveal">
 				<span class="when next">Applies next launch</span>
 				<h3>Mods</h3>
 				<p>
-					Toggle anything in the instance. The footer counts what is waiting rather
-					than pretending it has happened — and offers to spend the restart there and
-					then, straight back into the server or world you were in.
+					Toggle anything in the instance. The footer counts what is waiting rather than
+					pretending it has happened — and offers to spend the restart there and then,
+					straight back into the server or world you were in.
 				</p>
 			</article>
-			<article class="card">
+			<article class="card glass reveal">
 				<span class="when now">Applies immediately</span>
 				<h3>Resource packs</h3>
 				<p>
 					Switch a pack and the world looks different a second later. It runs through
-					Minecraft's own commit path, so a change made here is indistinguishable
-					from one made in the vanilla screen — including surviving the next launch.
+					Minecraft's own commit path, so a change made here is indistinguishable from
+					one made in the vanilla screen — including surviving the next launch.
 				</p>
 			</article>
-			<article class="card">
+			<article class="card glass reveal">
 				<span class="when now">Applies immediately</span>
 				<h3>Frame times</h3>
 				<p>
 					<kbd>F6</kbd> shows the slow tail rather than an average. An average
-					frames-per-second is exactly the statistic a stutter hides inside; the 1%
-					low is the number that moves when a setting actually helped.
+					frames-per-second is exactly the statistic a stutter hides inside; the 1% low
+					is the number that moves when a setting actually helped.
 				</p>
 			</article>
 		</div>
 	</section>
 
 	<section id="crash">
-		<div class="section-head">
+		<div class="section-head reveal">
 			<p class="eyebrow">When it stops starting</p>
 			<h2>The launcher knows which mod set worked. The crash log does not.</h2>
 			<p>
 				The companion mod reports in once the client is up — Fabric resolved the list,
-				every mixin applied, the window exists. Nothing outside the process can tell
-				that apart from a game that died before the window opened. So when a launch
-				fails inside the first minute without ever reporting, Loadout can name the last
-				set that did start, and offer it.
+				every mixin applied, the window exists. Nothing outside the process can tell that
+				apart from a game that died before the window opened. So when a launch fails
+				inside the first minute without ever reporting, Loadout can name the last set
+				that did start, and offer it.
 			</p>
 		</div>
 
 		<div class="cards">
-			<article class="card">
+			<article class="card glass reveal">
 				<h3>It offers. It does not act.</h3>
 				<p>
 					Rewriting your mod list because a process exited badly is help that is
-					indistinguishable from a bug. The diagnosis is a good guess, not a fact, so
-					a person decides.
+					indistinguishable from a bug. The diagnosis is a good guess, not a fact, so a
+					person decides.
 				</p>
 			</article>
-			<article class="card">
+			<article class="card glass reveal">
 				<h3>It stays quiet when it should</h3>
 				<p>
 					A game that ran an hour and then crashed did start, so its mods are not the
@@ -697,145 +721,183 @@
 					rather than sending you down the wrong path.
 				</p>
 			</article>
-			<article class="card">
+			<article class="card glass reveal">
 				<h3>Rolling back is instant</h3>
 				<p>
-					Snapshots are lists of hashes and every file already lives in a shared
-					store, so going back is relinking rather than re-downloading. No network,
-					under a second.
+					Snapshots are lists of hashes and every file already lives in a shared store,
+					so going back is relinking rather than re-downloading. No network, under a
+					second.
 				</p>
 			</article>
 		</div>
 	</section>
 
 	<section id="speed">
-		<div class="section-head">
+		<div class="section-head reveal">
 			<p class="eyebrow">Measured, not claimed</p>
 			<h2>Pressing Play should not be the slow part.</h2>
 			<p>
-				A warm launch — everything already installed, nothing to download — used to
-				spend about nine seconds in the launcher before Minecraft's JVM was even
-				spawned. All of it was re-learning something already known.
+				A warm launch — everything already installed, nothing to download — used to spend
+				about nine seconds in the launcher before Minecraft's JVM was even spawned. All
+				of it was re-learning something already known.
 			</p>
 		</div>
 
 		<div class="speed-grid">
-			<div class="bigstat">
+			<div class="bigstat glass reveal">
 				<span class="from">8.9 s</span>
-				<span class="to">1.3 s</span>
-				<span class="cap">
-					Launcher work before the game process starts, on a warm instance.
-				</span>
+				<span class="to" id="bigstat-value">1.3 s</span>
+				<span class="cap">Launcher work before the game process starts, on a warm instance.</span>
 			</div>
 
-			<div>
-				<div class="table-scroll">
-					<table>
-						<thead>
-							<tr>
-								<th scope="col">What it was doing</th>
-								<th scope="col" style="text-align:right">Was</th>
-								<th scope="col" style="text-align:right">Now</th>
-							</tr>
-						</thead>
-						<tbody>
-							<tr>
-								<td>Identifying every JDK by running it</td>
-								<td class="num was">4421 ms</td>
-								<td class="num now">40 ms</td>
-							</tr>
-							<tr>
-								<td>Checking 5057 assets already on disk</td>
-								<td class="num was">1939 ms</td>
-								<td class="num now">0 ms</td>
-							</tr>
-							<tr>
-								<td>Re-fetching the Fabric profile</td>
-								<td class="num was">379 ms</td>
-								<td class="num now">17 ms</td>
-							</tr>
-							<tr>
-								<td>Refreshing the Microsoft session</td>
-								<td class="num was">~2000 ms</td>
-								<td class="num now">once per sitting</td>
-							</tr>
-						</tbody>
-						<caption>
-							The asset check built a fresh HTTP client per file — five thousand of
-							them, each with its own thread — to ask the filesystem a question and
-							then return without sending a request.
-						</caption>
-					</table>
+			<div class="bars reveal" id="bars">
+				<div class="bar-row" data-was="4421" data-now="40">
+					<div class="bar-head">
+						<span class="what">Identifying every JDK by running it</span>
+						<span class="nums"><span class="was">4421 ms</span> → <span class="now">40 ms</span></span>
+					</div>
+					<div class="bar-track"><div class="bar-was"></div><div class="bar-now"></div></div>
 				</div>
+				<div class="bar-row" data-was="1939" data-now="1">
+					<div class="bar-head">
+						<span class="what">Checking 5057 assets already on disk</span>
+						<span class="nums"><span class="was">1939 ms</span> → <span class="now">0 ms</span></span>
+					</div>
+					<div class="bar-track"><div class="bar-was"></div><div class="bar-now"></div></div>
+				</div>
+				<div class="bar-row" data-was="379" data-now="17">
+					<div class="bar-head">
+						<span class="what">Re-fetching the Fabric profile</span>
+						<span class="nums"><span class="was">379 ms</span> → <span class="now">17 ms</span></span>
+					</div>
+					<div class="bar-track"><div class="bar-was"></div><div class="bar-now"></div></div>
+				</div>
+				<div class="bar-row" data-was="2000" data-now="1">
+					<div class="bar-head">
+						<span class="what">Refreshing the Microsoft session</span>
+						<span class="nums"><span class="was">~2000 ms</span> → <span class="now">once a sitting</span></span>
+					</div>
+					<div class="bar-track"><div class="bar-was"></div><div class="bar-now"></div></div>
+				</div>
+				<p style="font-size:13px;color:var(--muted);max-width:none;margin-top:4px">
+					The asset check built a fresh HTTP client per file — five thousand of them, each
+					with its own thread — to ask the filesystem a question and then return without
+					sending a request.
+				</p>
 			</div>
 		</div>
 	</section>
 
 	<section id="overlay">
-		<div class="section-head">
+		<div class="section-head reveal">
 			<p class="eyebrow">The overlay</p>
 			<h2>One bad frame in a hundred is invisible in an average.</h2>
 			<p>
-				Sixty frames where fifty-nine take 10&nbsp;ms and one takes 400&nbsp;ms average
-				out to something that looks fine — and the 400&nbsp;ms frame is the entire
-				problem. Change a memory setting or a garbage collector preset, play for a few
-				minutes, and watch whether the 1% low moves. If it does not, the setting did
-				not help.
+				Sixty frames where fifty-nine take 10&nbsp;ms and one takes 400&nbsp;ms average out
+				to something that looks fine — and the 400&nbsp;ms frame is the entire problem.
+				Change a memory setting or a collector preset, play for a few minutes, and watch
+				whether the 1% low moves.
 			</p>
 		</div>
 
-		<div class="overlay-demo">
-			<div><b>8.2 ms avg</b> · <span class="hi">31.4 ms 1% low</span> · 96 ms worst</div>
-			<div class="dim">121 fps · 1024 frames measured</div>
-			<div class="dim">G1 Young Generation + G1 Concurrent GC · 34 collections · 41 ms worst · 612 ms/min</div>
-			<div class="dim">3184 / 6144 MB heap</div>
+		<div class="reveal">
+			<div class="hud">
+				<div><b class="num" id="hud-avg">8.2 ms</b> avg · <span class="hi num" id="hud-low">31.4 ms</span> 1% low · <span class="num" id="hud-worst">96 ms</span> worst</div>
+				<div class="dim"><span class="num" id="hud-fps">121</span> fps · <span class="num" id="hud-frames">1024</span> frames measured</div>
+				<div class="dim">G1 Young Generation + G1 Concurrent GC · 34 collections · 41 ms worst · 612 ms/min</div>
+				<div class="dim">3184 / 6144 MB heap</div>
+			</div>
+			<canvas class="spark" id="spark" aria-label="Live frame times, with occasional stutters"></canvas>
+			<p style="margin-top:14px;color:var(--ink-2);font-size:15px">
+				The collector line sits beside the frame line deliberately. A collection's duration
+				is not a pause — ZGC does almost all of its work concurrently and can post long
+				durations while nothing stopped at all. Long collections next to steady frames are
+				a success, and would read as a problem if the two were reported apart.
+			</p>
 		</div>
-
-		<p style="margin-top:20px; color:var(--ink-2); font-size:15px">
-			The collector line sits beside the frame line deliberately. A collection's duration
-			is not a pause — ZGC does almost all of its work concurrently and can post long
-			durations while nothing stopped at all. Long collections next to steady frames are
-			a success, and would read as a problem if the two were reported apart.
-		</p>
 	</section>
 
 	<section id="limits">
-		<div class="section-head">
+		<div class="section-head reveal">
 			<p class="eyebrow">What it cannot do</p>
-			<h2>The honest part.</h2>
+			<h2>Why nothing hot-swaps a Minecraft mod.</h2>
+			<p>
+				This gets asked as a loader question — surely NeoForge, or Quilt, or one we write
+				ourselves? It is not a loader question. There are three layers in the way, and
+				only the first belongs to the loader.
+			</p>
 		</div>
 
-		<div class="cant">
-			<h3>It cannot hot-swap a mod into a running game.</h3>
+		<div class="layers reveal">
+			<div class="layer">
+				<span class="depth">Layer 1 · the loader</span>
+				<div>
+					<h4>Every loader resolves mods at startup</h4>
+					<p>
+						Fabric, NeoForge, Forge and Quilt all build the mod list during bootstrap and
+						never revisit it. This part really is a design choice, and a loader could in
+						principle be written to read a jar later. It is also the only one of the three
+						that could.
+					</p>
+				</div>
+			</div>
+			<div class="layer">
+				<span class="depth">Layer 2 · the game</span>
+				<div>
+					<h4>Minecraft freezes its registries</h4>
+					<p>
+						<code>MappedRegistry.freeze()</code> flips a flag, and every write after it
+						throws <code>Registry is already frozen</code>. Blocks, items, entities,
+						sounds, block entities — all of it. So any mod that adds content cannot be
+						added late no matter which loader you use, because the refusal comes from
+						Minecraft, not the loader.
+					</p>
+				</div>
+			</div>
+			<div class="layer">
+				<span class="depth">Layer 3 · the JVM</span>
+				<div>
+					<h4>Loaded classes cannot be restructured</h4>
+					<p>
+						A class the JVM has loaded can only be redefined in its method bodies —
+						<code>redefineClasses</code> cannot add a method, add a field, or change a
+						supertype. Mixins are applied as classes load, so a new mod's mixins can never
+						reach classes the game already holds. Patched JVMs like DCEVM lift some of
+						this; shipping one to players is not a launcher feature.
+					</p>
+				</div>
+			</div>
+		</div>
+
+		<div class="limit glass reveal" style="margin-top:24px">
+			<h3>So could we write one that does?</h3>
 			<p>
-				Fabric resolves the mod list, loads the classes and applies every mixin during
-				bootstrap. That is the platform, not a gap, and no amount of effort changes it.
-				So the question is not whether a restart happens — it is what the restart costs.
-				Landing back on the same server turns two minutes of menus into about ten
-				seconds, and that difference is the whole feature.
+				For a narrow slice, genuinely yes — and it would not be a mod loader. Give each
+				plugin its own classloader, let it hook only through our own API rather than by
+				mixing into Minecraft, and forbid it from touching registries, and it can be
+				loaded and dropped while the game runs. That covers HUD widgets, keybinds,
+				commands, client automation and cosmetics.
 			</p>
 			<p>
-				Shader packs are a loader's concept rather than the game's, and the loader that
-				reads <code>shaderpacks/</code> does not run on 26.2's Vulkan path at all.
-				Loadout installs them into the folder for whenever that changes. Rejoining a
-				Realm is not supported either: quick play wants a realm id, and a rejoin that
-				opens the wrong world is worse than one that admits it cannot.
+				What it does not cover is a mod that adds a block. Calling that "hot-swappable
+				mods" would be the marketing answer; it is a plugin system, and worth building as
+				one honestly rather than pretending the wall is not there. Loadout's answer is
+				the other one: the restart is unavoidable, so make it cost ten seconds.
 			</p>
 		</div>
 	</section>
 
 	<section id="install">
-		<div class="section-head">
+		<div class="section-head reveal">
 			<p class="eyebrow">Getting started</p>
 			<h2>Install</h2>
 			<p>
-				The launcher runs on Windows, macOS and Linux. The mod is client-side only —
-				you can put it in any Fabric instance, and the halves that do not need a
-				launcher work anyway.
+				The launcher runs on Windows, macOS and Linux. The mod is client-side only — put
+				it in any Fabric instance, and the halves that do not need a launcher work anyway.
 			</p>
 		</div>
 
-		<div class="steps">
+		<div class="steps reveal">
 			<div class="step">
 				<div>
 					<h3>Build the launcher</h3>
@@ -861,9 +923,10 @@ cd loadout &amp;&amp; ./gradlew dist</code></pre>
 				<div>
 					<h3>Press <kbd>\</kbd> in game</h3>
 					<p>
-						The companion mod is installed with the instance. <kbd>F6</kbd> toggles the
-						frame time overlay, and Mod Menu's Configure button opens the same screen.
+						The companion mod ships with the instance. <kbd>F6</kbd> toggles the frame
+						time overlay, and Mod Menu's Configure button opens the same screen.
 					</p>
+					<pre><code>git clone https://github.com/ComplexKing/loadout-mod</code></pre>
 				</div>
 			</div>
 		</div>
@@ -871,11 +934,392 @@ cd loadout &amp;&amp; ./gradlew dist</code></pre>
 
 	<footer>
 		<span>Loadout · MIT</span>
-		<a href="https://github.com/ComplexKing/loadout">Source</a>
+		<a href="https://github.com/ComplexKing/loadout">Launcher</a>
+		<a href="https://github.com/ComplexKing/loadout-mod">Mod</a>
 		<span class="spacer"></span>
 		<span>Not affiliated with Mojang Studios or Microsoft.</span>
 	</footer>
 </div>
+<script>
+/*
+	The demo panel is the pitch. Mods queue and the footer counts up; packs apply at once
+	and the row pulses. Reading that difference takes a paragraph; feeling it takes a click.
+*/
+(() => {
+	'use strict';
 
+	const $ = (id) => document.getElementById(id);
+	const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+	// ---------------------------------------------------------------- the content
+
+	const mods = [
+		{ id: 'sodium', file: 'sodium-0.6.13+mc26.2.jar', on: true },
+		{ id: 'iris', file: 'iris-1.8.11+mc26.2.jar', on: true },
+		{ id: 'distanthorizons', file: 'DistantHorizons-2.3.4-26.2.jar', on: true },
+		{ id: 'modmenu', file: 'modmenu-20.0.1.jar', on: true },
+		{ id: 'loadout', file: 'loadout-mod-0.1.0.jar', on: true },
+	];
+
+	const packs = [
+		{ id: 'Faithful 32x', file: 'file/Faithful-32x.zip', on: true },
+		{ id: 'Fresh Animations', file: 'file/FreshAnimations-1.9.2.zip', on: false },
+		{ id: 'Vanilla Tweaks', file: 'file/VanillaTweaks-r12.zip', on: false },
+		{ id: 'Default', file: 'vanilla', on: true, locked: true },
+	];
+
+	// Queued mod changes, by id. Packs are never in here -- that is the point.
+	const queued = new Map();
+
+	// ---------------------------------------------------------------- rendering
+
+	function glyphFor(name) {
+		return name.slice(0, 1).toUpperCase();
+	}
+
+	function makeRow(item, kind) {
+		const row = document.createElement('div');
+		row.className = 'row';
+
+		const glyph = document.createElement('span');
+		glyph.className = 'glyph';
+		glyph.textContent = glyphFor(item.id);
+
+		const who = document.createElement('div');
+		who.className = 'who';
+		const name = document.createElement('div');
+		name.className = 'mod-name';
+		name.textContent = item.id;
+		const file = document.createElement('div');
+		file.className = 'mod-file';
+		file.textContent = item.file;
+		who.append(name, file);
+
+		const toggle = document.createElement('button');
+		toggle.className = 'toggle';
+		toggle.type = 'button';
+
+		if (item.locked) {
+			toggle.dataset.state = 'on';
+			toggle.textContent = 'Required';
+			toggle.disabled = true;
+			toggle.style.cursor = 'default';
+			toggle.title = 'The game requires this pack.';
+		} else {
+			paintToggle(toggle, item, kind);
+			toggle.addEventListener('click', () => {
+				if (kind === 'mod') {
+					toggleMod(item, toggle);
+				} else {
+					togglePack(item, toggle, row);
+				}
+			});
+		}
+
+		row.append(glyph, who, toggle);
+		return row;
+	}
+
+	function paintToggle(button, item, kind) {
+		if (kind === 'mod' && queued.has(item.id)) {
+			button.dataset.state = 'queued';
+			button.textContent = queued.get(item.id) ? 'On next' : 'Off next';
+			button.setAttribute('aria-label', item.id + ', ' + (queued.get(item.id) ? 'on' : 'off') + ' next launch');
+			return;
+		}
+		button.dataset.state = item.on ? 'on' : 'off';
+		button.textContent = item.on ? 'On' : 'Off';
+		button.setAttribute('aria-label', item.id + ', ' + (item.on ? 'on' : 'off'));
+	}
+
+	// A mod change is recorded against the next launch, never applied.
+	function toggleMod(item, button) {
+		const wanted = queued.has(item.id) ? !queued.get(item.id) : !item.on;
+
+		if (wanted === item.on) {
+			queued.delete(item.id);          // back where it started
+		} else {
+			queued.set(item.id, wanted);
+		}
+
+		paintToggle(button, item, 'mod');
+		paintFooter();
+	}
+
+	// A pack change happens now, so the row acknowledges it.
+	function togglePack(item, button, row) {
+		item.on = !item.on;
+		paintToggle(button, item, 'pack');
+
+		if (!reduced) {
+			row.classList.remove('landed');
+			void row.offsetWidth;              // restart the animation
+			row.classList.add('landed');
+		}
+
+		const status = $('demo-status');
+		status.className = 'demo-status live';
+		status.textContent = item.on
+			? '✓ ' + item.id + ' applied — no restart'
+			: '✓ ' + item.id + ' removed — no restart';
+
+		clearTimeout(togglePack.timer);
+		togglePack.timer = setTimeout(paintFooter, 2600);
+	}
+
+	function paintFooter() {
+		const status = $('demo-status');
+		const apply = $('demo-apply');
+		const n = queued.size;
+
+		if (n === 0) {
+			status.className = 'demo-status';
+			status.textContent = active === 'perf'
+				? 'Measuring since the overlay was switched on.'
+				: 'Nothing waiting.';
+			apply.hidden = true;
+			return;
+		}
+
+		status.className = 'demo-status pending';
+		status.textContent = n + (n === 1 ? ' change' : ' changes') + ' will apply next launch';
+		apply.hidden = false;
+		apply.textContent = 'Apply and rejoin play.example.net';
+	}
+
+	// ---------------------------------------------------------------- the restart
+
+	const RESTART = [
+		['Saving and disconnecting', '0.4 s'],
+		['Staging the new mod set', '0.2 s'],
+		['Starting Minecraft', '1.3 s'],
+		['Rejoining play.example.net', '7.1 s'],
+	];
+
+	function playRestart() {
+		const pane = $('pane-mods');
+		const apply = $('demo-apply');
+		apply.hidden = true;
+
+		const list = document.createElement('div');
+		list.className = 'relaunch';
+		RESTART.forEach(([label, time]) => {
+			const step = document.createElement('div');
+			step.className = 'relaunch-step';
+			const dot = document.createElement('span');
+			dot.className = 'relaunch-dot';
+			const text = document.createElement('span');
+			text.textContent = label;
+			const t = document.createElement('span');
+			t.className = 'relaunch-time';
+			t.textContent = time;
+			step.append(dot, text, t);
+			list.appendChild(step);
+		});
+
+		pane.replaceChildren(list);
+		const status = $('demo-status');
+		status.className = 'demo-status pending';
+		status.textContent = 'Restarting…';
+
+		const steps = [...list.children];
+		let i = 0;
+		const tick = () => {
+			if (i > 0) steps[i - 1].classList.replace('active', 'done');
+			if (i === steps.length) {
+				status.className = 'demo-status live';
+				status.textContent = '✓ Back on play.example.net — about nine seconds';
+				setTimeout(resetMods, 2600);
+				return;
+			}
+			steps[i].classList.add('active');
+			i++;
+			setTimeout(tick, reduced ? 60 : 700);
+		};
+		tick();
+	}
+
+	function resetMods() {
+		// The queued changes are now the truth -- that is what a restart means.
+		queued.forEach((wanted, id) => {
+			const mod = mods.find((m) => m.id === id);
+			if (mod) mod.on = wanted;
+		});
+		queued.clear();
+		renderMods();
+		paintFooter();
+	}
+
+	// ---------------------------------------------------------------- panes
+
+	function renderMods() {
+		$('pane-mods').replaceChildren(...mods.map((m) => makeRow(m, 'mod')));
+	}
+
+	function renderPacks() {
+		$('pane-packs').replaceChildren(...packs.map((p) => makeRow(p, 'pack')));
+	}
+
+	function renderPerf() {
+		const pane = $('pane-perf');
+		const hud = document.createElement('div');
+		hud.className = 'hud';
+		hud.style.margin = '2px';
+		hud.innerHTML =
+			'<div><b class="num" id="p-avg">8.2 ms</b> avg · <span class="hi num" id="p-low">31.4 ms</span> 1% low · '
+			+ '<span class="num" id="p-worst">96 ms</span> worst</div>'
+			+ '<div class="dim"><span class="num" id="p-fps">121</span> fps · 1024 frames measured</div>'
+			+ '<div class="dim">G1 Young Generation + G1 Concurrent GC · 34 collections · 41 ms worst</div>'
+			+ '<div class="dim">3184 / 6144 MB heap</div>';
+
+		const note = document.createElement('p');
+		note.style.cssText = 'font-size:13px;color:var(--muted);padding:4px 2px 0;max-width:none';
+		note.textContent = 'The 1% low is the mean of the worst hundredth. It is the number that moves when a setting actually helped.';
+
+		pane.replaceChildren(hud, note);
+	}
+
+	let active = 'mods';
+
+	function selectTab(which) {
+		active = which;
+		['mods', 'packs', 'perf'].forEach((k) => {
+			const tab = $('tab-' + k);
+			const pane = $('pane-' + k);
+			const on = k === which;
+			tab.setAttribute('aria-selected', String(on));
+			pane.hidden = !on;
+		});
+		if (which === 'mods') renderMods();
+		if (which === 'packs') renderPacks();
+		if (which === 'perf') renderPerf();
+		paintFooter();
+	}
+
+	['mods', 'packs', 'perf'].forEach((k) => {
+		$('tab-' + k).addEventListener('click', () => selectTab(k));
+	});
+	$('demo-apply').addEventListener('click', playRestart);
+
+	selectTab('mods');
+
+	// ---------------------------------------------------------------- sparkline
+
+	const canvas = $('spark');
+	if (canvas) {
+		const ctx = canvas.getContext('2d');
+		const frames = [];
+		const COUNT = 150;
+
+		const style = () => getComputedStyle(document.documentElement);
+		const nextFrame = () => (Math.random() < 0.022 ? 40 + Math.random() * 70 : 7 + Math.random() * 4);
+		for (let i = 0; i < COUNT; i++) frames.push(nextFrame());
+
+		function draw() {
+			const dpr = window.devicePixelRatio || 1;
+			const w = canvas.clientWidth;
+			const h = canvas.clientHeight;
+			if (!w || !h) return;
+			canvas.width = w * dpr;
+			canvas.height = h * dpr;
+			ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+			ctx.clearRect(0, 0, w, h);
+
+			const cs = style();
+			const accent = cs.getPropertyValue('--accent').trim() || '#3ed17e';
+			const warn = cs.getPropertyValue('--warn').trim() || '#e0a63f';
+			const line = cs.getPropertyValue('--glass-line').trim() || 'rgba(255,255,255,.1)';
+			const max = 120;
+
+			// A faint 16.7ms line, which is the budget a 60fps frame has.
+			const budgetY = h - (16.7 / max) * h;
+			ctx.strokeStyle = line;
+			ctx.lineWidth = 1;
+			ctx.setLineDash([3, 4]);
+			ctx.beginPath();
+			ctx.moveTo(0, budgetY);
+			ctx.lineTo(w, budgetY);
+			ctx.stroke();
+			ctx.setLineDash([]);
+
+			const step = w / (COUNT - 1);
+			frames.forEach((ms, i) => {
+				const barH = Math.min(h, (ms / max) * h);
+				ctx.fillStyle = ms > 16.7 ? warn : accent;
+				ctx.globalAlpha = ms > 16.7 ? 0.95 : 0.55;
+				ctx.fillRect(i * step, h - barH, Math.max(1, step - 1), barH);
+			});
+			ctx.globalAlpha = 1;
+		}
+
+		let timer = null;
+		function start() {
+			if (timer || reduced) { draw(); return; }
+			timer = setInterval(() => {
+				frames.push(nextFrame());
+				frames.shift();
+				draw();
+			}, 90);
+		}
+		function stop() { clearInterval(timer); timer = null; }
+
+		// Only while it is on screen -- an animation nobody is looking at is just heat.
+		new IntersectionObserver((entries) => {
+			entries.forEach((e) => (e.isIntersecting ? start() : stop()));
+		}, { threshold: 0.15 }).observe(canvas);
+
+		window.addEventListener('resize', draw);
+		draw();
+	}
+
+	// ---------------------------------------------------------------- reveals + bars
+
+	const revealer = new IntersectionObserver((entries, obs) => {
+		entries.forEach((e) => {
+			if (!e.isIntersecting) return;
+			e.target.classList.add('in');
+			obs.unobserve(e.target);
+		});
+	}, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+	document.querySelectorAll('.reveal').forEach((el) => revealer.observe(el));
+
+	const bars = $('bars');
+	if (bars) {
+		new IntersectionObserver((entries, obs) => {
+			entries.forEach((e) => {
+				if (!e.isIntersecting) return;
+				bars.querySelectorAll('.bar-row').forEach((row) => {
+					const was = Number(row.dataset.was);
+					const now = Number(row.dataset.now);
+					row.querySelector('.bar-was').style.width = '100%';
+					row.querySelector('.bar-now').style.width = Math.max(1.5, (now / was) * 100) + '%';
+				});
+				obs.unobserve(e.target);
+			});
+		}, { threshold: 0.3 }).observe(bars);
+	}
+
+	// ---------------------------------------------------------------- theme changes
+
+	// Held for two frames: one for the class to land, one for the new palette to paint
+	// under it. Removing it any sooner and the transitions start after all.
+	const themeQuery = window.matchMedia('(prefers-color-scheme: dark)');
+	const suppressTransitions = () => {
+		const root = document.documentElement;
+		root.classList.add('theme-switching');
+		requestAnimationFrame(() => requestAnimationFrame(() => {
+			root.classList.remove('theme-switching');
+		}));
+	};
+	if (themeQuery.addEventListener) themeQuery.addEventListener('change', suppressTransitions);
+
+	// ---------------------------------------------------------------- masthead
+
+	const masthead = $('masthead');
+	const onScroll = () => masthead.classList.toggle('stuck', window.scrollY > 8);
+	window.addEventListener('scroll', onScroll, { passive: true });
+	onScroll();
+})();
+</script>
 </body>
 </html>
