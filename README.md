@@ -108,6 +108,15 @@ processes can read.
 The key is checked against CurseForge before it is stored, so a bad one is refused rather
 than saved and rejected on every later request.
 
+## Download
+
+[**Loadout 0.1.0**](https://github.com/ComplexKing/loadout/releases/latest) — the Windows
+installer bundles a Java runtime, so there is nothing to set up first. The jar is there
+too for macOS, Linux and the command line, and needs Java 21 or newer.
+
+The [companion mod](https://github.com/ComplexKing/loadout-mod/releases/latest) is a
+separate download.
+
 ## Installing
 
 ```bash

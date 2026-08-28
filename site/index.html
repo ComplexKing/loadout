@@ -8,6 +8,10 @@
 <meta property="og:description" content="Change a mod without losing your place.">
 <meta property="og:type" content="website">
 <title>Loadout</title>
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" href="logo.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-256.png">
+<meta property="og:image" content="https://complexking.github.io/loadout/icon-256.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Public+Sans:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;500;700&display=swap">
@@ -511,6 +515,62 @@ section + section { border-top: 1px solid var(--line-soft); }
 .layer h4 { margin: 0 0 4px; font-family: var(--display); font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
 .layer p { font-size: 14.5px; color: var(--ink-2); }
 
+/* ------------------------------------------------------------------ downloads */
+
+.downloads {
+	display: grid;
+	gap: 16px;
+	grid-template-columns: repeat(auto-fit, minmax(248px, 1fr));
+	margin-bottom: 20px;
+}
+
+.dl {
+	display: grid;
+	gap: 5px;
+	align-content: start;
+	padding: 22px 22px 20px;
+	text-decoration: none;
+	color: var(--ink);
+	transition: transform .22s var(--ease), box-shadow .22s var(--ease), border-color .22s;
+}
+.dl:hover {
+	transform: translateY(-4px);
+	box-shadow: var(--shadow-lift);
+	border-color: color-mix(in srgb, var(--accent) 34%, var(--glass-line));
+}
+.dl:active { transform: translateY(-1px) scale(0.99); }
+
+/* The one most people want, marked by weight rather than by a badge saying "recommended". */
+.dl.primary-dl {
+	border-color: color-mix(in srgb, var(--accent) 40%, var(--glass-line));
+	box-shadow: var(--shadow), 0 0 0 1px color-mix(in srgb, var(--accent) 16%, transparent) inset;
+}
+
+.dl-os {
+	display: flex;
+	align-items: center;
+	gap: 9px;
+	font-family: var(--mono);
+	font-size: 10.5px;
+	letter-spacing: 0.09em;
+	text-transform: uppercase;
+	color: var(--accent);
+	margin-bottom: 3px;
+}
+.dl-name { font-family: var(--display); font-weight: 600; font-size: 17px; letter-spacing: -0.012em; }
+.dl-meta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+
+.dl-note {
+	font-size: 14px;
+	color: var(--ink-2);
+	max-width: 68ch;
+	padding: 14px 16px;
+	border-radius: var(--r);
+	background: var(--warn-wash);
+	border: 1px solid color-mix(in srgb, var(--warn) 26%, transparent);
+}
+.dl-note strong { color: var(--warn); font-weight: 600; }
+
 /* ------------------------------------------------------------------ install */
 
 .steps { display: grid; gap: 18px; counter-reset: step; }
@@ -586,21 +646,32 @@ footer a:hover { color: var(--accent); }
 				<linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
 					<stop offset="0" stop-color="#46da91"/><stop offset="1" stop-color="#35c37d"/>
 				</linearGradient>
+				<clipPath id="lg-clip"><rect width="512" height="512" rx="112"/></clipPath>
+				<mask id="lg-halo">
+					<rect width="512" height="512" fill="white"/>
+					<polygon points="256.0,57.1 393.8,126.0 256.0,194.9 118.2,126.0" fill="black"/>
+					<polygon points="118.2,126.0 256.0,194.9 256.0,276.9 118.2,208.0" fill="black"/>
+					<polygon points="393.8,126.0 256.0,194.9 256.0,276.9 393.8,208.0" fill="black"/>
+				</mask>
 			</defs>
 			<rect width="512" height="512" rx="112" fill="url(#lg)"/>
-			<polygon points="90.6,282 256,366 256,466 90.6,382" fill="#06251a"/>
-			<polygon points="421.4,282 256,366 256,466 421.4,382" fill="#06251a"/>
-			<polygon points="256,198 421.4,282 256,366 90.6,282" fill="#15553b"/>
-			<polygon points="170.6,132 256,175.7 256,227.7 170.6,184" fill="#06251a"/>
-			<polygon points="341.4,132 256,175.7 256,227.7 341.4,184" fill="#06251a"/>
-			<polygon points="256,88.3 341.4,132 256,175.7 170.6,132" fill="#15553b"/>
+			<g clip-path="url(#lg-clip)">
+				<g mask="url(#lg-halo)">
+					<polygon points="88.0,284.0 256.0,368.0 256.0,468.0 88.0,384.0" fill="#06251a"/>
+					<polygon points="424.0,284.0 256.0,368.0 256.0,468.0 424.0,384.0" fill="#06251a"/>
+					<polygon points="256.0,200.0 424.0,284.0 256.0,368.0 88.0,284.0" fill="#15553b"/>
+				</g>
+				<polygon points="168.6,132.0 256.0,175.7 256.0,227.7 168.6,184.0" fill="#06251a"/>
+				<polygon points="343.4,132.0 256.0,175.7 256.0,227.7 343.4,184.0" fill="#06251a"/>
+				<polygon points="256.0,88.3 343.4,132.0 256.0,175.7 168.6,132.0" fill="#15553b"/>
+			</g>
 		</svg>
 		<span class="name">Loadout</span>
 		<nav>
 			<a href="#try">Try it</a>
 			<a href="#speed">Speed</a>
 			<a href="#limits">Limits</a>
-			<a href="#install">Install</a>
+			<a href="#install">Download</a>
 		</nav>
 	</div>
 </header>
@@ -617,8 +688,8 @@ footer a:hover { color: var(--accent); }
 				and hunting for the server again.
 			</p>
 			<div class="cta-row">
-				<a class="btn primary" href="https://github.com/ComplexKing/loadout">Get Loadout</a>
-				<a class="btn ghost" href="#try">Try the screen</a>
+				<a class="btn primary" href="#install">Download for Windows</a>
+				<a class="btn ghost" href="#install">Download</a>
 			</div>
 			<p class="hero-note">Open source · MIT · Not affiliated with Mojang</p>
 		</div>
@@ -889,44 +960,87 @@ footer a:hover { color: var(--accent); }
 
 	<section id="install">
 		<div class="section-head reveal">
-			<p class="eyebrow">Getting started</p>
-			<h2>Install</h2>
+			<p class="eyebrow">Download</p>
+			<h2>Get Loadout</h2>
 			<p>
-				The launcher runs on Windows, macOS and Linux. The mod is client-side only — put
-				it in any Fabric instance, and the halves that do not need a launcher work anyway.
+				The Windows installer carries its own Java runtime, so there is nothing to set
+				up first — no JDK, no PATH, no environment variables.
 			</p>
+		</div>
+
+		<div class="downloads reveal">
+			<a class="dl glass primary-dl"
+			   href="https://github.com/ComplexKing/loadout/releases/download/v0.1.0/Loadout-Setup-0.1.0.exe">
+				<span class="dl-os">
+					<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+						<path d="M3 5.6 10 4.6v6.9H3zM11 4.5 21 3v8.5H11zM3 12.5h7v6.9l-7-1zM11 12.5h10V21l-10-1.5z"/>
+					</svg>
+					Windows
+				</span>
+				<span class="dl-name">Loadout Setup 0.1.0</span>
+				<span class="dl-meta">Installer · 140 MB · Java included</span>
+			</a>
+
+			<a class="dl glass"
+			   href="https://github.com/ComplexKing/loadout/releases/download/v0.1.0/loadout-0.1.0.jar">
+				<span class="dl-os">
+					<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+						<path d="M4 6h16v12H4zM9 21h6M12 18v3"/>
+					</svg>
+					macOS · Linux · CLI
+				</span>
+				<span class="dl-name">loadout-0.1.0.jar</span>
+				<span class="dl-meta">Jar · 3.9 MB · needs Java 21+</span>
+			</a>
+
+			<a class="dl glass"
+			   href="https://github.com/ComplexKing/loadout-mod/releases/download/v0.1.0/loadout-mod-0.1.0.jar">
+				<span class="dl-os">
+					<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true">
+						<path d="M12 2 3 7v10l9 5 9-5V7zm0 2.3 6.5 3.6L12 11.5 5.5 7.9z"/>
+					</svg>
+					Companion mod
+				</span>
+				<span class="dl-name">loadout-mod-0.1.0.jar</span>
+				<span class="dl-meta">Fabric · MC 26.2 · client-side</span>
+			</a>
+		</div>
+
+		<p class="dl-note reveal">
+			Windows will warn that the publisher is unknown — the installer is not code-signed.
+			Choose <strong>More info</strong>, then <strong>Run anyway</strong>. Minecraft 26.2
+			itself needs Java 25, which Loadout looks for separately from the runtime it ships
+			with.
+		</p>
+
+		<div class="section-head reveal" style="margin-top:56px">
+			<p class="eyebrow">Or build it</p>
+			<h2>From source</h2>
 		</div>
 
 		<div class="steps reveal">
 			<div class="step">
 				<div>
-					<h3>Build the launcher</h3>
+					<h3>The launcher</h3>
 					<p>Java 25 is fetched automatically if the machine has none.</p>
 					<pre><code>git clone https://github.com/ComplexKing/loadout
-cd loadout &amp;&amp; ./gradlew dist</code></pre>
+cd loadout &amp;&amp; ./gradlew dist
+cd app &amp;&amp; npm install &amp;&amp; npm start</code></pre>
 				</div>
 			</div>
 			<div class="step">
 				<div>
-					<h3>Start the desktop app</h3>
-					<p>It spawns the jar and drives it over a loopback API, so the command line stays a first-class way in.</p>
-					<pre><code>cd app &amp;&amp; npm install &amp;&amp; npm start</code></pre>
+					<h3>The installer</h3>
+					<p>Builds the bundled runtime with jlink, then packages it.</p>
+					<pre><code>cd app &amp;&amp; npm run dist</code></pre>
 				</div>
 			</div>
 			<div class="step">
 				<div>
-					<h3>Sign in and make an instance</h3>
-					<p>A Microsoft account, a Minecraft version, and Fabric. Mods come from Modrinth and CurseForge in one search.</p>
-				</div>
-			</div>
-			<div class="step">
-				<div>
-					<h3>Press <kbd>\</kbd> in game</h3>
-					<p>
-						The companion mod ships with the instance. <kbd>F6</kbd> toggles the frame
-						time overlay, and Mod Menu's Configure button opens the same screen.
-					</p>
-					<pre><code>git clone https://github.com/ComplexKing/loadout-mod</code></pre>
+					<h3>The mod</h3>
+					<p>Press <kbd>\</kbd> in game once it is installed. <kbd>F6</kbd> toggles the frame time overlay.</p>
+					<pre><code>git clone https://github.com/ComplexKing/loadout-mod
+cd loadout-mod &amp;&amp; ./gradlew build</code></pre>
 				</div>
 			</div>
 		</div>
